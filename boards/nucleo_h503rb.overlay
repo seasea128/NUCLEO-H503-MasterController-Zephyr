@@ -1,0 +1,31 @@
+/{
+		chosen {
+				zephyr,canbus = &fdcan1;
+		};
+};
+
+&fdcan1 {
+		pinctrl-0 = <&fdcan1_rx_pb12 &fdcan1_tx_pb10>;
+		pinctrl-names = "default";
+		status = "okay";
+};
+
+&spi1 {
+	status = "okay";
+
+	cs-gpios = <&gpioa 14 GPIO_ACTIVE_LOW>;
+	pinctrl-0 = <&spi1_miso_pa0 &spi1_mosi_pa7 &spi1_sck_pa2>;
+	pinctrl-names = "default";
+
+	sdhc0: sdhc@0 {
+		status = "okay";
+		compatible = "zephyr,sdhc-spi-slot";
+		reg = <0>;
+		mmc {
+			compatible = "zephyr,sdmmc-disk";
+			disk-name = "SD";
+			status = "okay";
+		};
+		spi-max-frequency = <24000000>;
+	};
+};
