@@ -11,6 +11,9 @@ LOG_MODULE_REGISTER(main, CONFIG_LOG_DEFAULT_LEVEL);
 
 CAN_MSGQ_DEFINE(distance_msgq, 10);
 
+// TODO: msgq or fifo?
+K_MSGQ_DEFINE(distance_save_msgq, sizeof(uint16_t), 100, 1);
+
 const struct device *const can_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_canbus));
 
 #define DISK_DRIVE_NAME "SD"
@@ -25,8 +28,11 @@ static struct fs_mount_t mp = {.type = FS_FATFS, .fs_data = &fat_fs};
 
 static const char *disk_mount_pt = DISK_MOUNT_PT;
 
+void save_to_fs_thread() {};
+
 int main(void) {
     LOG_INF("Initializing");
+
     mp.mnt_point = disk_mount_pt;
 
     LOG_INF("Mounting disk");
@@ -78,6 +84,8 @@ int main(void) {
 
     LOG_INF("Finished initializing");
 
+    // TODO: Use onboard button to exit loop so that the filesystem can be
+    // unmounted for data safety.
     while (true) {
         k_msgq_get(&distance_msgq, &current_frame, K_FOREVER);
 
@@ -88,8 +96,12 @@ int main(void) {
 
         LOG_INF("Received distance: %u", *(uint16_t *)(&current_frame.data));
 
+        k_msgq_put(&distance_save_msgq, (uint16_t *)(&current_frame.data),
+                   K_FOREVER);
+
         // TODO: For testing purpose, final impl would probably with another
-        // thread pulling data out from a queue, then save to file.
+        // thread pulling data out from a queue, then save to file + transmit to
+        // 4G module over UART.
         ret = fs_open(&open_file, "test.txt", FS_O_WRITE);
         if (ret != 0) {
             LOG_ERR("Cannot open file: %d", ret);
