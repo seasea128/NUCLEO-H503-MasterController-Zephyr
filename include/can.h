@@ -1,0 +1,1 @@
+int can_init();
