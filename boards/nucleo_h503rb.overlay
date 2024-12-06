@@ -2,6 +2,22 @@
 		chosen {
 				zephyr,canbus = &fdcan1;
 		};
+
+		gpio_4g_modem {
+				compatible = "gpio-keys";
+				modem_interrupt: interrupt {
+						gpios = <&gpiob 3 GPIO_ACTIVE_HIGH>;
+						label = "Modem Interrupt";
+				};
+				modem_sleep: sleep {
+						gpios = <&gpiob 5 GPIO_ACTIVE_HIGH>;
+						label = "Modem Sleep";
+				};
+		};
+
+		alias {
+				modem-interrupt = &modem_interrupt;
+		};
 };
 
 &fdcan1 {
