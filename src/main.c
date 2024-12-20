@@ -1,6 +1,7 @@
 #include <can.h>
 #include <ff.h>
 #include <file_op.h>
+#include <message.h>
 #include <save_data_thread.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/can.h>
@@ -20,6 +21,7 @@ struct k_fifo distance_save_fifo;
 
 // CAN setup
 CAN_MSGQ_DEFINE(distance_msgq, 10);
+const struct device *const can_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_canbus));
 
 static struct gpio_dt_spec button_gpio =
     GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0});
@@ -29,8 +31,6 @@ int main(void) {
     int ret;
 
     k_fifo_init(&distance_save_fifo);
-
-    can_init();
 
     file_op_mount_disk();
 
@@ -43,6 +43,12 @@ int main(void) {
     }
 
     // Initializing FDCAN
+    ret = can_init(&distance_msgq, can_dev);
+    if (ret != 0) {
+        LOG_ERR("Error %d: failed to initialize CAN", ret);
+        return 0;
+    }
+
     static struct can_frame current_frame;
 
     LOG_INF("Button port: %s pin: %d", button_gpio.port->name, button_gpio.pin);
@@ -50,31 +56,61 @@ int main(void) {
 
     ret = file_op_open_file("test.txt");
     if (ret != FR_OK) {
-        LOG_ERR("Cannot open file");
+        LOG_ERR("Error %d: Cannot open file", ret);
         return ret;
     }
 
-    bool button_state = true;
+    bool button_state = false;
+
+    static message msg;
+    msg = message_init();
 
     // TODO: Use onboard button to exit loop so that the filesystem can be
     // unmounted for data safety.
-    while (button_state) {
-        LOG_INF("Current button state: %d", button_state);
-        button_state = !gpio_pin_get_dt(&button_gpio);
-        LOG_INF("Current button state: %d", button_state);
+    while (!button_state) {
+        // Get button state
+        button_state = gpio_pin_get_dt(&button_gpio);
+
+        // Get data from message queue
         k_msgq_get(&distance_msgq, &current_frame, K_FOREVER);
 
         if (current_frame.dlc != 2) {
-            LOG_ERR("Data length is not 2, continuing [%d]", current_frame.dlc);
+            LOG_ERR("Error: Data length is not 2, continuing [Length: %d]",
+                    current_frame.dlc);
             continue;
         }
 
         LOG_INF("Received distance: %u", *(uint16_t *)(&current_frame.data));
 
-        // k_msgq_put(&distance_save_msgq, (uint16_t *)(&current_frame.data),
-        // K_FOREVER);
+        switch (current_frame.id) {
+        case 0x01:
+            msg.tl = *(uint16_t *)(&current_frame.data);
+            break;
+        case 0x02:
+            msg.tr = *(uint16_t *)(&current_frame.data);
+            break;
+        case 0x03:
+            msg.bl = *(uint16_t *)(&current_frame.data);
+            break;
+        case 0x04:
+            msg.br = *(uint16_t *)(&current_frame.data);
+            break;
+        }
 
-        // k_fifo_put(&distance_save_fifo, (uint16_t *)(&current_frame.data));
+        if (msg.timestamp == 0) {
+            // TODO: Get timestamp, speed and location from GPS
+        }
+
+        if (msg.tl != 0 && msg.tr != 0 && msg.bl != 0 && msg.br != 0) {
+            // TODO: Send message over to SD card queue and 4G module queue
+            k_fifo_put(&distance_save_fifo, &msg);
+        }
+
+        // k_msgq_put(&distance_save_msgq, (uint16_t
+        // *)(&current_frame.data), K_FOREVER);
+
+        // k_fifo_put(&distance_save_fifo, (uint16_t
+        // *)(&current_frame.data));
 
         // TODO: For testing purpose, final impl would probably with
         // another thread pulling data out from a queue, then save to
