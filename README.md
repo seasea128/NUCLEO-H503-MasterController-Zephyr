@@ -1,17 +1,19 @@
 # NUCLEO-H503RB-MasterController
 
+## Prerequisites
+- CMake >= 3.20
+- STM32CubeProgrammer >= 2.18.0 (Any version that supports flashing to STM32H5 should works fine)
+- External compiler/toolchain is not needed
+
 ## Building the project
 
-Install west from [https://docs.zephyrproject.org/latest/develop/getting_started/index.html]
+Follow the instruction from [https://docs.zephyrproject.org/latest/develop/getting_started/index.html] to install west and Zephyr SDK.
 
-Then, install custom branch of Zephyr with:
+Then, the project can be cloned and build with the following commands.
 
-```bash
-west init -m http://github.com/seasea128/zephyr
-cd zephyr
-git switch stm32h503rb-sd-spi-fix
-west sdk install
-west update
+``` bash
+git clone https://github.com/seasea128/NUCLEO-H503-MasterController-Zephyr
+west build -b nucleo_h503rb
+west flash
 ```
 
-This branch of Zephyr forces SD SPI driver to communicate at 1MHz at start instead of 400kHz. So, some microSD might not work with this project since the SD specs specifies initialization to be at 400kHz.
