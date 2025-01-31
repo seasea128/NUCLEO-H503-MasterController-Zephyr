@@ -1,3 +1,6 @@
+#include "Protobuf-FYP/proto/data.pb.h"
+#include "message.h"
+#include "pb_encode.h"
 #include "zephyr/fs/fs.h"
 #include "zephyr/logging/log.h"
 #include <stdbool.h>
@@ -39,15 +42,27 @@ void save_data_thread() {
         }
     }
 
-    uint16_t distance;
+    message distance;
     int ret;
-
+    uint8_t buffer[64];
     char str_write[64];
+    pb_ostream_t stream;
+    controllerMessage_DataReceived msg;
+
+    stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
 
     while (true) {
-        distance = *(uint16_t *)k_fifo_get(&distance_save_fifo, K_FOREVER);
+        // distance = *(uint16_t *)k_fifo_get(&distance_save_fifo, K_FOREVER);
+        distance = *(message *)k_fifo_get(&distance_save_fifo, K_FOREVER);
 
-        int size = sprintf(str_write, "%u,\n", distance);
+        bool result =
+            pb_encode(&stream, &controllerMessage_DataReceived_msg, &msg);
+        if (!result) {
+            LOG_ERR("Cannot create protobuf message: %d", ret);
+            continue;
+        }
+
+        int size = sprintf(str_write, "%u,\n", distance.tl);
 
         ret = fs_write(&open_file, str_write, size * sizeof(char));
         if (ret != 0) {

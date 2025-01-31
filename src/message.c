@@ -7,7 +7,14 @@ const char to_string_template[] = "";
 const size_t to_string_size = sizeof(to_string_template);
 
 message message_init() {
-    message msg = {};
+    message msg = {
+        .timestamp = 0,
+        .tl = 0,
+        .tr = 0,
+        .bl = 0,
+        .br = 0,
+        .speed = 0,
+    };
     return msg;
 }
 

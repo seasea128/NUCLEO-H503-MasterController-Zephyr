@@ -3,6 +3,7 @@
 #include <file_op.h>
 #include <message.h>
 #include <save_data_thread.h>
+#include <sim7600_driver.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/can.h>
 #include <zephyr/drivers/gpio.h>
@@ -15,8 +16,6 @@
 
 LOG_MODULE_REGISTER(main, CONFIG_LOG_DEFAULT_LEVEL);
 
-// TODO: msgq or fifo? probably fifo
-// K_FIFO_DEFINE(distance_save_fifo);
 struct k_fifo distance_save_fifo;
 
 // CAN setup
@@ -31,8 +30,6 @@ int main(void) {
     int ret;
 
     k_fifo_init(&distance_save_fifo);
-
-    file_op_mount_disk();
 
     // Initializing GPIO button on board
     ret = gpio_pin_configure_dt(&button_gpio, GPIO_INPUT);
@@ -49,11 +46,18 @@ int main(void) {
         return 0;
     }
 
-    static struct can_frame current_frame;
+    struct can_frame current_frame;
+
+    ret = sim7600_init(NULL, 0);
+    if (ret != SIM7600_OK) {
+        LOG_ERR("Error %d: Cannot initialize SIM7600", ret);
+        return ret;
+    }
 
     LOG_INF("Button port: %s pin: %d", button_gpio.port->name, button_gpio.pin);
-    static char str_write[64];
+    char str_write[64];
 
+    file_op_mount_disk();
     ret = file_op_open_file("test.txt");
     if (ret != FR_OK) {
         LOG_ERR("Error %d: Cannot open file", ret);
@@ -62,10 +66,9 @@ int main(void) {
 
     bool button_state = false;
 
-    static message msg;
-    msg = message_init();
+    message msg = message_init();
 
-    // TODO: Use onboard button to exit loop so that the filesystem can be
+    // Use onboard button to exit loop so that the filesystem can be
     // unmounted for data safety.
     while (!button_state) {
         // Get button state
@@ -104,10 +107,8 @@ int main(void) {
         if (msg.tl != 0 && msg.tr != 0 && msg.bl != 0 && msg.br != 0) {
             // TODO: Send message over to SD card queue and 4G module queue
             k_fifo_put(&distance_save_fifo, &msg);
+            memset(&msg, 0, sizeof(message));
         }
-
-        // k_msgq_put(&distance_save_msgq, (uint16_t
-        // *)(&current_frame.data), K_FOREVER);
 
         // k_fifo_put(&distance_save_fifo, (uint16_t
         // *)(&current_frame.data));

@@ -1,29 +1,31 @@
 /{
-		chosen {
-				zephyr,canbus = &fdcan1;
-		};
+	chosen {
+		zephyr,canbus = &fdcan1;
+	};
 
-		gpio_4g_modem {
-				compatible = "gpio-keys";
-				modem_interrupt: interrupt {
-						gpios = <&gpiob 3 GPIO_ACTIVE_HIGH>;
-						label = "Modem Interrupt";
-				};
-				modem_sleep: sleep {
-						gpios = <&gpiob 5 GPIO_ACTIVE_HIGH>;
-						label = "Modem Sleep";
-				};
+	gpio_4g_modem {
+		compatible = "gpio-keys";
+		modem_interrupt: interrupt {
+			gpios = <&gpiob 3 GPIO_ACTIVE_HIGH>;
+			label = "Modem Interrupt";
 		};
+		modem_sleep: sleep {
+			gpios = <&gpiob 5 GPIO_ACTIVE_HIGH>;
+			label = "Modem Sleep";
+		};
+	};
 
-		alias {
-				modem-interrupt = &modem_interrupt;
-		};
+	aliases {
+		modem-interrupt = &modem_interrupt;
+		modem-sleep = &modem_sleep;
+		modem = &usart1;
+	};
 };
 
 &fdcan1 {
-		pinctrl-0 = <&fdcan1_rx_pb12 &fdcan1_tx_pb10>;
-		pinctrl-names = "default";
-		status = "okay";
+	pinctrl-0 = <&fdcan1_rx_pb12 &fdcan1_tx_pb10>;
+	pinctrl-names = "default";
+	status = "okay";
 };
 
 &spi1 {
@@ -56,4 +58,12 @@
 	pinctrl-names = "default";
 	current-speed = <115200>;
 	status = "okay";
+
+	// Custom driver needed for SIM7600G?
+	// modem: modem {
+	// 	compatible = "simcom,sim7080";
+	// 	mdm-power-gpios = <&gpiob 2 GPIO_ACTIVE_HIGH>;
+	// 	status = "okay";
+
+	// };
 };
