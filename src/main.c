@@ -18,6 +18,8 @@ LOG_MODULE_REGISTER(main, CONFIG_LOG_DEFAULT_LEVEL);
 
 struct k_fifo distance_save_fifo;
 
+char server_addr[] = "tcp://94.130.24.30:1883";
+
 // CAN setup
 CAN_MSGQ_DEFINE(distance_msgq, 10);
 const struct device *const can_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_canbus));
@@ -48,11 +50,17 @@ int main(void) {
 
     struct can_frame current_frame;
 
-    ret = sim7600_init(NULL, 0);
+    ret = sim7600_init(server_addr, sizeof(server_addr));
     if (ret != SIM7600_OK) {
         LOG_ERR("Error %d: Cannot initialize SIM7600", ret);
         return ret;
     }
+
+    k_sleep(K_MSEC(5000));
+
+    sim7600_close();
+
+    return 0;
 
     LOG_INF("Button port: %s pin: %d", button_gpio.port->name, button_gpio.pin);
     char str_write[64];

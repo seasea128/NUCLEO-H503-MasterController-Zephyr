@@ -12,5 +12,7 @@ SIM7600_RESULT sim7600_send_at(char *cmd, size_t size_cmd, char *output,
 
 SIM7600_RESULT sim7600_send_mqtt(uint8_t *buffer, size_t size);
 
+SIM7600_RESULT sim7600_close();
+
 SIM7600_RESULT
 sim7600_init(char *mqtt_address, size_t addr_size);

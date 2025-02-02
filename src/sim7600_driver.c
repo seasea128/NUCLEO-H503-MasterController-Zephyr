@@ -2,21 +2,24 @@
 #include "sim7600_at_cmd.h"
 #include "zephyr/logging/log.h"
 #include "zephyr/toolchain.h"
+#include <stdio.h>
 #include <string.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/kernel.h>
 
-#define RX_TIMEOUT 500
+// TODO: Figure out what is the value of timeout that should be used
+#define RX_TIMEOUT_MS 120000
+#define STARTUP_SEQ_TIMEOUT_MS 30000
 
-LOG_MODULE_DECLARE(main, CONFIG_LOG_DEFAULT_LEVEL);
+LOG_MODULE_REGISTER(sim7600, LOG_LEVEL_DBG);
 
 K_FIFO_DEFINE(sim7600_fifo);
 
 const struct device *const dev = DEVICE_DT_GET(DT_ALIAS(modem));
 
 // TODO: Mutex or semaphore?
-struct k_mutex sim7600_mutex;
+// struct k_mutex sim7600_mutex;
 static char rx_buf[512];
 static size_t rx_buf_pos = 0;
 static size_t count = 0;
@@ -32,56 +35,69 @@ static void sim7600_callback(const struct device *dev, void *user_data) {
         return;
     }
 
-    if (!uart_irq_rx_ready(dev)) {
-        LOG_INF("UART RX not ready");
+    int result = uart_irq_rx_ready(dev);
+
+    if (!result) {
+        LOG_INF("UART RX not ready: %d", result);
         return;
     }
 
-    /* read until FIFO empty */
     while (uart_fifo_read(dev, &c, 1) == 1) {
-        if ((c == '\n' || c == '\r') && rx_buf_pos > 0) {
-            /* terminate string */
-            rx_buf[rx_buf_pos] = '\0';
+        // The message ends with OK\r\n
+        if (c == '\r' && rx_buf_pos > 0) {
+            // Check if the string inside ends with OK or not
+            if (rx_buf[rx_buf_pos - 1] == 'K' &&
+                rx_buf[rx_buf_pos - 2] == 'O') {
+                /* terminate string */
+                rx_buf[rx_buf_pos - 2] = '\0';
 
-            /* if queue is full, message is silently dropped */
-            k_fifo_put(&sim7600_fifo, &rx_buf);
+                /* if queue is full, message is silently dropped */
+                // LOG_INF("Message received: %.*s", strlen(rx_buf), rx_buf);
+                k_fifo_put(&sim7600_fifo, &rx_buf);
+                // k_mutex_unlock(&sim7600_mutex);
 
-            /* reset the buffer (it was copied to the msgq) */
-            rx_buf_pos = 0;
+                /* reset the buffer (it was copied to the msgq) */
+                rx_buf_pos = 0;
+                count = 0;
+            } else if (rx_buf[rx_buf_pos - 1] == 'R' &&
+                       rx_buf[rx_buf_pos - 2] == 'O') {
+                /* terminate string */
+                rx_buf[rx_buf_pos] = '\0';
+
+                /* if queue is full, message is silently dropped */
+                // LOG_INF("Message received: %.*s", strlen(rx_buf), rx_buf);
+                k_fifo_put(&sim7600_fifo, &rx_buf);
+                // k_mutex_unlock(&sim7600_mutex);
+
+                /* reset the buffer (it was copied to the msgq) */
+                rx_buf_pos = 0;
+                count = 0;
+            } else if (rx_buf[rx_buf_pos - 1] == 'E' &&
+                       rx_buf[rx_buf_pos - 2] == 'N') {
+                /* terminate string */
+                rx_buf[rx_buf_pos] = '\0';
+
+                /* if queue is full, message is silently dropped */
+                // LOG_INF("Message received: %.*s", strlen(rx_buf), rx_buf);
+                k_fifo_put(&sim7600_fifo, &rx_buf);
+                // k_mutex_unlock(&sim7600_mutex);
+
+                /* reset the buffer (it was copied to the msgq) */
+                rx_buf_pos = 0;
+                count = 0;
+            } else {
+                LOG_INF("RX not finished but encounter \\r and \\n");
+                if (c == '\r' || c == '\n')
+                    continue;
+                rx_buf[rx_buf_pos++] = c;
+            }
         } else if (rx_buf_pos < (sizeof(rx_buf) - 1)) {
+            if (c == '\r' || c == '\n')
+                continue;
             rx_buf[rx_buf_pos++] = c;
         }
         /* else: characters beyond buffer size are dropped */
     }
-
-    // while (uart_fifo_read(conf, &c, 1) == 1) {
-    //     // The message ends with OK\r\n
-    //     LOG_INF("Next char: 0x%x", c);
-    //     // Ignore first set of \r\n
-    //     if (c == '\n' && rx_buf_pos > 0) {
-    //         // Check if the string inside is OK or not
-    //         if (rx_buf[rx_buf_pos - 1] == 'K' &&
-    //             rx_buf[rx_buf_pos - 2] == 'O') {
-    //             /* terminate string */
-    //             rx_buf[rx_buf_pos] = '\0';
-
-    //            /* if queue is full, message is silently dropped */
-    //            LOG_INF("Message received: %.*s", strlen(rx_buf), rx_buf);
-    //            k_fifo_put(&sim7600_fifo, &rx_buf);
-    //            k_mutex_unlock(&sim7600_mutex);
-
-    //            /* reset the buffer (it was copied to the msgq) */
-    //            rx_buf_pos = 0;
-    //            count = 0;
-    //        } else {
-    //            LOG_INF("RX not finished but encounter \\r and \\n");
-    //            rx_buf[rx_buf_pos++] = c;
-    //        }
-    //    } else if (rx_buf_pos < (sizeof(rx_buf) - 1)) {
-    //        rx_buf[rx_buf_pos++] = c;
-    //    }
-    //    /* else: characters beyond buffer size are dropped */
-    //}
 }
 
 SIM7600_RESULT
@@ -95,7 +111,7 @@ sim7600_init(char *mqtt_address, size_t addr_size) {
         return SIM7600_INIT_ERROR;
     }
 
-    k_mutex_init(&sim7600_mutex);
+    // k_mutex_init(&sim7600_mutex);
     k_fifo_init(&sim7600_fifo);
 
     int ret = uart_irq_callback_set(dev, &sim7600_callback);
@@ -104,13 +120,87 @@ sim7600_init(char *mqtt_address, size_t addr_size) {
         return SIM7600_INIT_ERROR;
     }
     uart_irq_rx_enable(dev);
-    // sim7600_send_at(ATE, sizeof(ATE), at_output, sizeof(at_output));
+
+    unsigned char *result = (unsigned char *)k_fifo_get(
+        &sim7600_fifo, K_MSEC(STARTUP_SEQ_TIMEOUT_MS));
+
+    if (result != NULL) {
+        LOG_INF("Result: %.*s", strlen(result), result);
+    }
+
+    unsigned char *result2 =
+        (unsigned char *)k_fifo_get(&sim7600_fifo, K_MSEC(500));
+
+    if (result != NULL) {
+        LOG_INF("Result: %.*s", strlen(result2), result2);
+    }
+
+    // Disable echo mode
+    sim7600_send_at(ATE, sizeof(ATE), at_output, sizeof(at_output));
+
+    k_sleep(K_MSEC(4000));
 
     // TODO: Set up MQTT connection and set the modem to correct mode
-    sim7600_send_at("AT+CPSI?\r", sizeof("AT+CPSI?\r"), at_output,
+    sim7600_send_at("AT+COPS?\r", sizeof("AT+COPS?\r"), at_output,
                     sizeof(at_output));
 
+    sim7600_send_at(AT_MQTTSTART, sizeof(AT_MQTTSTART), at_output,
+                    sizeof(at_output));
+
+    // AT_MQTTACCQ
+    {
+        char at_mqttaccq[250] = {0};
+        char clientName[] = "testClient";
+
+        int size = snprintf(at_mqttaccq, sizeof(at_mqttaccq), AT_MQTTACCQ, 0,
+                            sizeof(clientName), clientName);
+
+        sim7600_send_at(at_mqttaccq, strlen(at_mqttaccq), at_output,
+                        sizeof(at_output));
+    }
+
+    // AT_MQTTCONNECT
+    {
+        char at_mqttconnect[250] = {0};
+        int size = snprintf(at_mqttconnect, sizeof(at_mqttconnect),
+                            AT_MQTTCONNECT, 0, addr_size, mqtt_address, 60, 1);
+
+        sim7600_send_at(at_mqttconnect, strlen(at_mqttconnect), at_output,
+                        sizeof(at_output));
+    }
+
     LOG_INF("Initializing SIM7600 done");
+    return SIM7600_OK;
+}
+
+SIM7600_RESULT sim7600_close() {
+    char at_result[250] = {0};
+
+    {
+        char mqtt_disconnect[30] = {0};
+
+        int size = snprintf(mqtt_disconnect, sizeof(mqtt_disconnect),
+                            AT_MQTTDIS, 0, 120);
+
+        sim7600_send_at(mqtt_disconnect, strlen(mqtt_disconnect), at_result,
+                        sizeof(at_result));
+        LOG_INF("Disconnect client result: %.*s", strlen(at_result), at_result);
+    }
+
+    {
+        char mqtt_rel[30] = {0};
+
+        int size = snprintf(mqtt_rel, sizeof(mqtt_rel), AT_MQTTREL, 0);
+
+        sim7600_send_at(mqtt_rel, strlen(mqtt_rel), at_result,
+                        sizeof(at_result));
+        LOG_INF("Release client result: %.*s", strlen(at_result), at_result);
+    }
+
+    sim7600_send_at(AT_MQTTSTOP, sizeof(AT_MQTTSTOP), at_result,
+                    sizeof(at_result));
+    LOG_INF("Stop MQTT service result: %.*s", strlen(at_result), at_result);
+
     return SIM7600_OK;
 }
 
@@ -122,7 +212,7 @@ SIM7600_RESULT sim7600_send_at(char *cmd, size_t size_cmd, char *output,
     }
 
     unsigned char *result =
-        (unsigned char *)k_fifo_get(&sim7600_fifo, K_MSEC(RX_TIMEOUT));
+        (unsigned char *)k_fifo_get(&sim7600_fifo, K_MSEC(RX_TIMEOUT_MS));
 
     if (result == NULL) {
         LOG_ERR("SIM7600 RX timeout");
