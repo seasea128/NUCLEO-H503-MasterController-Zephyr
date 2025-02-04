@@ -22,7 +22,7 @@ const struct device *const dev = DEVICE_DT_GET(DT_ALIAS(modem));
 // struct k_mutex sim7600_mutex;
 static char rx_buf[512];
 static size_t rx_buf_pos = 0;
-static size_t count = 0;
+static bool MQTT_CONN = false;
 
 // TODO: Fix this callback, only reading 2-3 bytes and stopping
 static void sim7600_callback(const struct device *dev, void *user_data) {
@@ -45,52 +45,53 @@ static void sim7600_callback(const struct device *dev, void *user_data) {
     while (uart_fifo_read(dev, &c, 1) == 1) {
         // The message ends with OK\r\n
         if (c == '\r' && rx_buf_pos > 0) {
-            // Check if the string inside ends with OK or not
             if (rx_buf[rx_buf_pos - 1] == 'K' &&
                 rx_buf[rx_buf_pos - 2] == 'O') {
+                // Check if the string inside ends with OK or not
                 /* terminate string */
-                rx_buf[rx_buf_pos - 2] = '\0';
+                rx_buf[rx_buf_pos] = '\0';
 
-                /* if queue is full, message is silently dropped */
-                // LOG_INF("Message received: %.*s", strlen(rx_buf), rx_buf);
                 k_fifo_put(&sim7600_fifo, &rx_buf);
-                // k_mutex_unlock(&sim7600_mutex);
 
                 /* reset the buffer (it was copied to the msgq) */
                 rx_buf_pos = 0;
-                count = 0;
             } else if (rx_buf[rx_buf_pos - 1] == 'R' &&
                        rx_buf[rx_buf_pos - 2] == 'O') {
+                // Checks for ERROR at the end of string
                 /* terminate string */
                 rx_buf[rx_buf_pos] = '\0';
 
-                /* if queue is full, message is silently dropped */
-                // LOG_INF("Message received: %.*s", strlen(rx_buf), rx_buf);
                 k_fifo_put(&sim7600_fifo, &rx_buf);
-                // k_mutex_unlock(&sim7600_mutex);
 
                 /* reset the buffer (it was copied to the msgq) */
                 rx_buf_pos = 0;
-                count = 0;
             } else if (rx_buf[rx_buf_pos - 1] == 'E' &&
                        rx_buf[rx_buf_pos - 2] == 'N') {
+                // Startup ready check
                 /* terminate string */
                 rx_buf[rx_buf_pos] = '\0';
 
-                /* if queue is full, message is silently dropped */
-                // LOG_INF("Message received: %.*s", strlen(rx_buf), rx_buf);
                 k_fifo_put(&sim7600_fifo, &rx_buf);
-                // k_mutex_unlock(&sim7600_mutex);
 
                 /* reset the buffer (it was copied to the msgq) */
                 rx_buf_pos = 0;
-                count = 0;
             } else {
                 LOG_INF("RX not finished but encounter \\r and \\n");
                 if (c == '\r' || c == '\n')
                     continue;
                 rx_buf[rx_buf_pos++] = c;
             }
+        } else if ((c == '0' && rx_buf[rx_buf_pos - 1] == ',') &&
+                   rx_buf_pos > 0 && MQTT_CONN) {
+            // Weird case, OK comes first before response from modem.
+            // Only for MQTTCONNECT and pub/sub command
+            LOG_INF("MQTT connect detected");
+            rx_buf[rx_buf_pos++] = c;
+            rx_buf[rx_buf_pos] = '\0';
+            k_fifo_put(&sim7600_fifo, &rx_buf);
+
+            // Reset buffer and add current char
+            rx_buf_pos = 0;
         } else if (rx_buf_pos < (sizeof(rx_buf) - 1)) {
             if (c == '\r' || c == '\n')
                 continue;
@@ -111,7 +112,6 @@ sim7600_init(char *mqtt_address, size_t addr_size) {
         return SIM7600_INIT_ERROR;
     }
 
-    // k_mutex_init(&sim7600_mutex);
     k_fifo_init(&sim7600_fifo);
 
     int ret = uart_irq_callback_set(dev, &sim7600_callback);
@@ -121,6 +121,8 @@ sim7600_init(char *mqtt_address, size_t addr_size) {
     }
     uart_irq_rx_enable(dev);
 
+    // Get 2 string from fifo on startup, need to do this since the modem takes
+    // quite a bit of time to startup
     unsigned char *result = (unsigned char *)k_fifo_get(
         &sim7600_fifo, K_MSEC(STARTUP_SEQ_TIMEOUT_MS));
 
@@ -142,6 +144,8 @@ sim7600_init(char *mqtt_address, size_t addr_size) {
 
     // TODO: Set up MQTT connection and set the modem to correct mode
     sim7600_send_at("AT+COPS?\r", sizeof("AT+COPS?\r"), at_output,
+                    sizeof(at_output));
+    sim7600_send_at("AT+CSQ\r", sizeof("AT+CSQ\r"), at_output,
                     sizeof(at_output));
 
     sim7600_send_at(AT_MQTTSTART, sizeof(AT_MQTTSTART), at_output,
@@ -165,8 +169,21 @@ sim7600_init(char *mqtt_address, size_t addr_size) {
         int size = snprintf(at_mqttconnect, sizeof(at_mqttconnect),
                             AT_MQTTCONNECT, 0, addr_size, mqtt_address, 60, 1);
 
+        LOG_INF("MQTT_CONN = true");
+        MQTT_CONN = true;
         sim7600_send_at(at_mqttconnect, strlen(at_mqttconnect), at_output,
                         sizeof(at_output));
+
+        unsigned char *mqttConnectResult =
+            (unsigned char *)k_fifo_get(&sim7600_fifo, K_MSEC(RX_TIMEOUT_MS));
+
+        if (mqttConnectResult != NULL) {
+            LOG_INF("MQTT connect result: %.*s", strlen(mqttConnectResult),
+                    mqttConnectResult);
+        }
+
+        LOG_INF("MQTT_CONN = false");
+        MQTT_CONN = false;
     }
 
     LOG_INF("Initializing SIM7600 done");

@@ -1,0 +1,18 @@
+manifest:
+  remotes:
+    - name: zephyrproject-rtos
+      url-base: https://github.com/zephyrproject-rtos
+    - name: nanopb
+      url-base: https://github.com/nanopb/nanopb
+  projects:
+    - name: zephyr
+      remote: zephyrproject-rtos
+      revision: ee250a11ce503fdf24793afac0712bacd26759da
+      import: true
+    - name: nanopb
+      remote: nanopb
+      revision: 7307ce399b81ddcb3c3a5dc862c52d4754328d38
+      path: modules/lib/nanopb
+  self:
+    path: MasterController
+  
