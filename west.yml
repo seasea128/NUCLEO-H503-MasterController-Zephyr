@@ -3,12 +3,15 @@ manifest:
     - name: zephyrproject-rtos
       url-base: https://github.com/zephyrproject-rtos
     - name: nanopb
-      url-base: https://github.com/nanopb/nanopb
+      url-base: https://github.com/nanopb
   projects:
     - name: zephyr
       remote: zephyrproject-rtos
       revision: ee250a11ce503fdf24793afac0712bacd26759da
-      import: true
+      import: 
+        name-allowlist:
+          - cmsis
+          - hal_stm32
     - name: nanopb
       remote: nanopb
       revision: 7307ce399b81ddcb3c3a5dc862c52d4754328d38
