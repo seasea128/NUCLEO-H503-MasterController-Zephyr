@@ -14,6 +14,7 @@ manifest:
         name-allowlist:
           - cmsis
           - hal_stm32
+          - fatfs
     - name: nanopb
       remote: nanopb
       revision: 7307ce399b81ddcb3c3a5dc862c52d4754328d38
