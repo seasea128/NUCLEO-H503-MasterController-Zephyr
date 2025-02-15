@@ -18,7 +18,7 @@
 static char rx_buf[BUFFER_SIZE];
 static size_t rx_buf_pos = 0;
 
-#define SIM7600_WORKER_STACK 1024
+#define SIM7600_WORKER_STACK 3072
 #define SIM7600_PRIORITY 5
 #define SIM7600_MSGQ_SIZE sizeof(sim7600_msgq_item)
 #define SIM7600_MSGQ_MAX 10
@@ -296,7 +296,7 @@ static SIM7600_RESULT normal_parse(char *output, size_t size_out) {
 
 static SIM7600_RESULT after_status_parse(char *output, size_t size_out) {
     bool parsing = true;
-    char resp_buf[512] = {0};
+    char resp_buf[256] = {0};
     resp_buf[0] = '\0';
     while (parsing) {
         unsigned char *result =

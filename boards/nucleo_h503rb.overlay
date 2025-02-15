@@ -19,6 +19,7 @@
 		modem-interrupt = &modem_interrupt;
 		modem-sleep = &modem_sleep;
 		modem = &usart1;
+		rtc = &rtc;
 	};
 };
 

@@ -23,6 +23,8 @@ zephyr_nanopb_sources(app ./Protobuf-FYP/proto/timestamp.proto)
 
 target_include_directories(app PRIVATE ./include/)
 
+target_compile_definitions(app PRIVATE CONTROLLER_NAME="MC_2")
+
 target_sources(app PRIVATE 
 		       src/main.c
 			   src/file_op.c
