@@ -35,6 +35,9 @@ void sim7600_worker_handler();
 //                 sim7600_worker_handler, NULL, NULL, NULL,
 //                 K_LOWEST_APPLICATION_THREAD_PRIO, 0, 0);
 
+// Mutexes
+static struct k_mutex sim7600_mutex;
+
 // Modem from device tree
 const struct device *const dev = DEVICE_DT_GET(DT_ALIAS(modem));
 
@@ -172,6 +175,7 @@ sim7600_init(char *mqtt_address, size_t addr_size) {
     }
 
     k_fifo_init(&sim7600_fifo);
+    k_mutex_init(&sim7600_mutex);
     // k_thread_start(sim7600_worker_tid);
 
     // Set interrupt handler and enable it
@@ -358,12 +362,14 @@ static SIM7600_RESULT parse_response(sim7600_resp_type resp_type, char *output,
 // message otherwise there's no way to know if there's anything in the buffer.
 SIM7600_RESULT sim7600_send_at(char *cmd, size_t size_cmd, char *output,
                                size_t size_out, sim7600_resp_type resp_type) {
+    k_mutex_lock(&sim7600_mutex, K_FOREVER);
     LOG_INF("Sent AT command: %.*s", strlen(cmd), cmd);
     for (size_t i = 0; i < size_cmd; ++i) {
         uart_poll_out(dev, cmd[i]);
     }
 
     parse_response(resp_type, output, size_out);
+    k_mutex_unlock(&sim7600_mutex);
 
     LOG_INF("Result: %.*s", strlen(output), output);
     return SIM7600_OK;
@@ -397,6 +403,23 @@ static SIM7600_RESULT sim7600_send_at_with_message(char *cmd, size_t size_cmd,
     return SIM7600_OK;
 }
 
+SIM7600_RESULT sim7600_set_topic_mqtt(char *topic, size_t size_topic) {
+    char output[256] = {0};
+    char at_cmd[256] = {0};
+    SIM7600_RESULT res;
+
+    // Set topic (AT_CMQTTTOPIC)
+    int size =
+        snprintf(at_cmd, sizeof(at_cmd), AT_MQTTTOPIC, 0, size_topic - 1);
+    res = sim7600_send_at_with_message(at_cmd, size, topic, size_topic, output,
+                                       sizeof(output));
+
+    if (res != SIM7600_OK) {
+        LOG_ERR("Error setting topic: %d", res);
+    }
+    return res;
+}
+
 SIM7600_RESULT sim7600_publish_mqtt(char *topic, size_t size_topic,
                                     uint8_t *payload, size_t size_payload) {
     // TODO: Add structure for using AT commands to send request
@@ -405,13 +428,7 @@ SIM7600_RESULT sim7600_publish_mqtt(char *topic, size_t size_topic,
     char at_cmd[256] = {0};
     SIM7600_RESULT res;
 
-    // Set topic (AT_CMQTTTOPIC)
-    {
-        int size =
-            snprintf(at_cmd, sizeof(at_cmd), AT_MQTTTOPIC, 0, size_topic - 1);
-        res = sim7600_send_at_with_message(at_cmd, size, topic, size_topic,
-                                           output, sizeof(output));
-    }
+    res = sim7600_set_topic_mqtt(topic, size_topic);
     if (res != SIM7600_OK) {
         return res;
     }
