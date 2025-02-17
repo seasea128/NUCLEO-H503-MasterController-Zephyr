@@ -4,7 +4,9 @@ set(BOARD nucleo_h503rb)
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 set(CMAKE_C_STANDARD 11)
 
-option(MasterController_LTO "Enable LTO for the main application" ON)
+option(MC_LTO "Enable LTO for the main application" ON)
+set(MC_ControllerName "MC_1" CACHE STRING "Controller Name")
+set(MC_ServerAddress "94.130.24.30" CACHE STRING "Remote server address")
 
 find_package(Zephyr)
 project(MasterController)
@@ -14,7 +16,7 @@ set_property(TARGET app PROPERTY C_STANDARD 23)
 list(APPEND CMAKE_MODULE_PATH ${ZEPHYR_BASE}/modules/nanopb)
 include(nanopb)
 
-if(MasterController_LTO)
+if(MC_LTO)
 	set_property(TARGET app PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 
@@ -23,7 +25,8 @@ zephyr_nanopb_sources(app ./Protobuf-FYP/proto/timestamp.proto)
 
 target_include_directories(app PRIVATE ./include/)
 
-target_compile_definitions(app PRIVATE CONTROLLER_NAME="MC_2")
+target_compile_definitions(app PRIVATE CONTROLLER_NAME="${MC_ControllerName}")
+target_compile_definitions(app PRIVATE SERVER_ADDR="${MC_ServerAddress}")
 
 target_sources(app PRIVATE 
 		       src/main.c
@@ -33,4 +36,3 @@ target_sources(app PRIVATE
 			   src/message.c
 			   src/sim7600_driver.c
 )
-
