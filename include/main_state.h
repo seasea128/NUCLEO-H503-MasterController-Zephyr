@@ -21,7 +21,7 @@ typedef struct main_state_s {
     controllerMessage_Measurement measurement;
 } main_state;
 
-void main_state_init(main_state *state);
+void main_state_init(main_state *state, struct k_msgq *can_msgq);
 void main_state_execute(main_state *state);
 
 #endif // MAIN_STATE_H_

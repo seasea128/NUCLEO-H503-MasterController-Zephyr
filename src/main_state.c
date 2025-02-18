@@ -73,7 +73,11 @@ inline static void new_session(main_state *state) {
     state->state = MAIN_STATE_RECORD_DATA;
 }
 
-void main_state_init(main_state *state) { fs_file_t_init(&state->file); }
+void main_state_init(main_state *state, struct k_msgq *can_msgq) {
+    fs_file_t_init(&state->file);
+    state->can_msgq = can_msgq;
+    state->state = MAIN_STATE_DISK_UNMOUNTED;
+}
 
 void main_state_execute(main_state *state) {
     switch (state->state) {

@@ -31,7 +31,6 @@ static k_tid_t save_data_thread_id;
 // CAN setup
 CAN_MSGQ_DEFINE(distance_msgq, 100);
 const struct device *const can_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_canbus));
-static struct can_frame current_frame;
 
 static struct gpio_dt_spec button_gpio =
     GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0});
@@ -41,7 +40,7 @@ int main(void) {
     int ret;
     main_state state;
 
-    main_state_init(&state);
+    main_state_init(&state, &distance_msgq);
 
     k_fifo_init(&save_data_fifo);
 
