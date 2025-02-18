@@ -1,9 +1,7 @@
-#include "Protobuf-FYP/proto/data.pb.h"
 #include "file_op.h"
 #include "message.h"
 #include "pb_encode.h"
 #include "sim7600_driver.h"
-#include "zephyr/fs/fs.h"
 #include "zephyr/logging/log.h"
 #include <stdbool.h>
 #include <string.h>
@@ -17,17 +15,14 @@ LOG_MODULE_REGISTER(save_data_thread, LOG_LEVEL_WRN);
 #define DISK_MOUNT_PT "/" DISK_DRIVE_NAME ":"
 
 extern struct k_fifo save_data_fifo;
-
 static controllerMessage_DataPoints dataPoints =
     controllerMessage_DataPoints_init_zero;
 
-static uint8_t buffer[controllerMessage_DataPoints_size] = {0};
-static pb_ostream_t stream;
+void write_data_points(controllerMessage_DataPoints *dataPoints,
+                       struct fs_file_t *file) {
+    uint8_t buffer[controllerMessage_DataPoints_size] = {0};
 
-static void write_data_points(controllerMessage_DataPoints *dataPoints,
-                              struct fs_file_t *file) {
-    memset(&buffer, 0, sizeof(buffer));
-    memset(&stream, 0, sizeof(pb_ostream_t));
+    pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
     bool result =
         pb_encode(&stream, &controllerMessage_DataPoints_msg, dataPoints);
     if (!result) {
@@ -77,10 +72,9 @@ cleanup:
     dataPoints->measurement_count = 0;
 }
 
-static void write_session(controllerMessage_Session *session,
-                          struct fs_file_t *file) {
-    memset(&buffer, 0, sizeof(buffer));
-    memset(&stream, 0, sizeof(pb_ostream_t));
+void write_session(controllerMessage_Session *session, struct fs_file_t *file) {
+    uint8_t buffer[controllerMessage_DataPoints_size] = {0};
+    pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
     bool result = pb_encode(&stream, &controllerMessage_Session_msg, session);
     if (!result) {
         LOG_ERR("Cannot create protobuf message: %s", PB_GET_ERROR(&stream));
@@ -136,8 +130,6 @@ void save_data_thread() {
     controllerMessage_Session session = controllerMessage_Session_init_zero;
     strncpy(session.controller_id, CONTROLLER_NAME,
             sizeof(session.controller_id));
-
-    stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
 
     while (true) {
         message msg = *(message *)k_fifo_get(&save_data_fifo, K_FOREVER);
