@@ -33,6 +33,7 @@ target_compile_definitions(app PRIVATE SERVER_ADDR="${MC_ServerAddress}")
 
 target_sources(app PRIVATE 
 		      src/main.c
+				src/main_state.c
 			   src/file_op.c
 			   src/can.c
 			   src/save_data_thread.c
