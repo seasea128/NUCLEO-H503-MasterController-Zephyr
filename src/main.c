@@ -1,4 +1,5 @@
 #include "Protobuf-FYP/proto/data.pb.h"
+#include "main_state.h"
 #include <can.h>
 #include <ff.h>
 #include <file_op.h>
@@ -38,7 +39,9 @@ static struct gpio_dt_spec button_gpio =
 int main(void) {
     LOG_INF("Initializing");
     int ret;
-    int32_t session_id = 0;
+    main_state state;
+
+    main_state_init(&state);
 
     k_fifo_init(&save_data_fifo);
 
@@ -57,11 +60,11 @@ int main(void) {
         return 0;
     }
 
-    // ret = sim7600_init(server_addr, sizeof(server_addr));
-    // if (ret != SIM7600_OK) {
-    //     LOG_ERR("Error %d: Cannot initialize SIM7600", ret);
-    //     return ret;
-    // }
+    ret = sim7600_init(server_addr, sizeof(server_addr));
+    if (ret != SIM7600_OK) {
+        LOG_ERR("Error %d: Cannot initialize SIM7600", ret);
+        return ret;
+    }
 
     // TODO: Get time from modem and set as internal time
 
@@ -69,20 +72,7 @@ int main(void) {
 
     file_op_mount_disk();
 
-    // TODO: Send session id to server
-    ret = file_op_get_count_in_dir(NULL, &session_id);
-    if (ret != 0) {
-        LOG_ERR("Error %d: failed to get file count in SD card", ret);
-        return 0;
-    }
-    LOG_INF("Current file count: %d", session_id);
-    session_id++;
-    LOG_INF("Current session id: %d", session_id);
-
     bool button_state = false;
-
-    controllerMessage_Measurement measurement =
-        controllerMessage_Measurement_init_zero;
 
     LOG_INF("Creating thread");
     save_data_thread_id = k_thread_create(
@@ -91,75 +81,13 @@ int main(void) {
         NULL, K_LOWEST_APPLICATION_THREAD_PRIO, 0, K_NO_WAIT);
     LOG_INF("Finish creating thread");
 
-    // Autostart new session when device start
-    {
-        message new_session = {.msg_type = message_new_session,
-                               .data.session_id = session_id};
-        k_fifo_put(&save_data_fifo, &new_session);
-    }
-    k_sleep(K_MSEC(300));
-
     // Use onboard button to exit loop so that the filesystem can be
     // unmounted for data safety.
     while (!button_state) {
         // Get button state
         button_state = gpio_pin_get_dt(&button_gpio);
 
-        // Get data from message queue
-        // k_msgq_get(&distance_msgq, &current_frame, K_FOREVER);
-
-        // if (current_frame.dlc != 2) {
-        //     LOG_ERR("Error: Data length is not 2, continuing [Length: %d]",
-        //             current_frame.dlc);
-        //     continue;
-        // }
-
-        //.LOG_INF("Received distance: %u", *(uint16_t *)(&current_frame.data));
-
-        // switch (current_frame.id) {
-        // case 0x01:
-        //     measurement.distance_lt = *(uint16_t *)(&current_frame.data);
-        //     break;
-        // case 0x02:
-        //     measurement.distance_rt = *(uint16_t *)(&current_frame.data);
-        //     break;
-        // case 0x03:
-        //     measurement.distance_lb = *(uint16_t *)(&current_frame.data);
-        //     break;
-        // case 0x04:
-        //     measurement.distance_rb = *(uint16_t *)(&current_frame.data);
-        //     break;
-        // }
-        measurement.distance_lt = 100;
-
-        // TODO: timestamp per measurement
-        //  if (measurement.timestamp == 0) {
-        //      measurement.timestamp = k_uptime_get();
-        //  }
-
-        if (measurement.distance_lt != 0
-            // && measurement.timestamp != 0
-            // && measurement.tr != 0
-            // && measurement.bl != 0
-            // && measurement.br != 0
-        ) {
-            // TODO: Send message over to SD card queue and 4G module queue
-            message msg = {.msg_type = message_measurement,
-                           .data.measurement = measurement};
-            k_fifo_put(&save_data_fifo, &msg);
-            memset(&measurement, 0, sizeof(controllerMessage_Measurement));
-        }
-        k_sleep(K_MSEC(10));
-
-        // TODO: For testing purpose, final impl would probably with
-        // another thread pulling data out from a queue, then save to
-        // file + transmit to 4G module over UART.
-
-        // char str_write[64];
-        // int size =
-        //     sprintf(str_write, "%u,\n", *(uint16_t *)(&current_frame.data));
-
-        // LOG_INF("CAN message: %.*s", size, str_write);
+        main_state_execute(&state);
     }
 
     file_op_unmount_disk();
