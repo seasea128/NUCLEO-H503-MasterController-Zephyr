@@ -17,7 +17,7 @@ inline static void record_data(main_state *state) {
         return;
     }
 
-    .LOG_INF("Received distance: %u", *(uint16_t *)(&current_frame.data));
+    LOG_INF("Received distance: %u", *(uint16_t *)(&state->can_message.data));
 
     switch (state->can_message.id) {
     case 0x01:
