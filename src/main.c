@@ -1,5 +1,6 @@
 #include "Protobuf-FYP/proto/data.pb.h"
 #include "main_state.h"
+#include "upload_thread/upload_thread.h"
 #include <can.h>
 #include <ff.h>
 #include <file_op.h>
@@ -20,13 +21,11 @@ LOG_MODULE_REGISTER(main, CONFIG_LOG_DEFAULT_LEVEL);
 
 struct k_fifo save_data_fifo;
 
-char server_addr[] = "tcp://94.130.24.30:1883";
-
 // TODO: Check if stack size need to be increased
 K_THREAD_STACK_DEFINE(save_data_stack, // 2048);
                       controllerMessage_Packet_size + 4096);
 struct k_thread save_data_thread_data;
-static k_tid_t save_data_thread_id;
+static k_tid_t upload_data_thread_id;
 
 // CAN setup
 CAN_MSGQ_DEFINE(distance_msgq, 100);
@@ -40,8 +39,6 @@ int main(void) {
     int ret;
     main_state state;
 
-    main_state_init(&state, &distance_msgq);
-
     k_fifo_init(&save_data_fifo);
 
     // Initializing GPIO button on board
@@ -52,32 +49,39 @@ int main(void) {
         return 0;
     }
 
+    ret = sim7600_init(SERVER_ADDR, sizeof(SERVER_ADDR));
+    if (ret != SIM7600_OK) {
+        LOG_ERR("Error %d: Cannot initialize SIM7600", ret);
+        return ret;
+    }
+
+    LOG_INF("Initialized SIM7600");
+
     // Initializing FDCAN
     ret = can_init(&distance_msgq, can_dev);
     if (ret != 0) {
         LOG_ERR("Error %d: failed to initialize CAN", ret);
         return 0;
     }
+    LOG_INF("Initialized CAN");
 
-    ret = sim7600_init(server_addr, sizeof(server_addr));
-    if (ret != SIM7600_OK) {
-        LOG_ERR("Error %d: Cannot initialize SIM7600", ret);
-        return ret;
-    }
+    main_state_init(&state, &distance_msgq);
+    LOG_INF("Initialized main_state");
 
     // TODO: Get time from modem and set as internal time
 
     LOG_INF("Button port: %s pin: %d", button_gpio.port->name, button_gpio.pin);
 
-    file_op_mount_disk();
+    // file_op_mount_disk();
 
     bool button_state = false;
 
     LOG_INF("Creating thread");
-    save_data_thread_id = k_thread_create(
+    upload_data_thread_id = k_thread_create(
         &save_data_thread_data, save_data_stack,
-        K_THREAD_STACK_SIZEOF(save_data_stack), save_data_thread, NULL, NULL,
-        NULL, K_LOWEST_APPLICATION_THREAD_PRIO, 0, K_NO_WAIT);
+        K_THREAD_STACK_SIZEOF(save_data_stack), upload_thread, NULL, NULL, NULL,
+        K_LOWEST_APPLICATION_THREAD_PRIO, 0, K_NO_WAIT);
+    k_thread_name_set(upload_data_thread_id, "upload_data");
     LOG_INF("Finish creating thread");
 
     // Use onboard button to exit loop so that the filesystem can be
