@@ -34,6 +34,8 @@ const struct device *const can_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_canbus));
 static struct gpio_dt_spec button_gpio =
     GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0});
 
+K_MSGQ_DEFINE(upload_data_msgq, 256, 10, 4);
+
 int main(void) {
     LOG_INF("Initializing");
     int ret;

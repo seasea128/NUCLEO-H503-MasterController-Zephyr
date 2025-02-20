@@ -14,11 +14,12 @@ typedef struct upload_state_s {
     enum upload_state state;
     FILE *file_posix;
     struct fs_file_t file;
+    struct k_msgq *upload_data_msgq;
     int current_session_id;
 
 } upload_state;
 
-void upload_state_init(upload_state *state);
+void upload_state_init(upload_state *state, struct k_msgq *upload_data_msgq);
 
 void upload_state_execute(upload_state *state);
 
