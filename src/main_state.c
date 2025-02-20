@@ -4,11 +4,12 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(main_state, CONFIG_LOG_DEFAULT_LEVEL);
+// LOG_MODULE_REGISTER(main_state, CONFIG_LOG_DEFAULT_LEVEL);
+LOG_MODULE_REGISTER(main_state, LOG_LEVEL_WRN);
 
 inline static void record_data(main_state *state) {
+    memset(&state->can_message, 0, sizeof(struct can_frame));
     k_msgq_get(state->can_msgq, &state->can_message, K_FOREVER);
-
     // TODO: Check if new session is started
 
     if (state->can_message.dlc != 2) {
@@ -41,10 +42,11 @@ inline static void record_data(main_state *state) {
     state->dataPoints.measurement[state->dataPoints.measurement_count++] =
         state->measurement;
 
-    if (state->dataPoints.measurement_count >= 100) {
+    if (state->dataPoints.measurement_count > 10) {
         // TODO: Get timestamp and location data
         // TODO: Write data
-        write_data_points(&state->dataPoints, &state->file);
+        state->dataPoints.measurement_count = 10;
+        write_data_points(&state->dataPoints, &state->file, state->upload_msgq);
     }
 }
 
@@ -52,7 +54,7 @@ inline static void new_session(main_state *state) {
     if (state->file.mp != NULL) {
         // TODO: Write closing session packet and close file
         controllerMessage_Session session = controllerMessage_Session_init_zero;
-        write_session(&session, &state->file);
+        write_session(&session, &state->file, state->upload_msgq);
     }
     state->session_id++;
 
@@ -69,33 +71,38 @@ inline static void new_session(main_state *state) {
 
     // TODO: Write start session packet
     controllerMessage_Session session = controllerMessage_Session_init_zero;
-    write_session(&session, &state->file);
+    write_session(&session, &state->file, state->upload_msgq);
     state->state = MAIN_STATE_RECORD_DATA;
 }
 
-void main_state_init(main_state *state, struct k_msgq *can_msgq) {
+void main_state_init(main_state *state, struct k_msgq *can_msgq,
+                     struct k_msgq *upload_msgq) {
     fs_file_t_init(&state->file);
     state->can_msgq = can_msgq;
+    state->upload_msgq = upload_msgq;
     state->state = MAIN_STATE_DISK_UNMOUNTED;
+    memset(&state->dataPoints, 0, sizeof(controllerMessage_DataPoints));
 }
 
 void main_state_execute(main_state *state) {
     switch (state->state) {
     case MAIN_STATE_DISK_MOUNTED: {
         // TODO: wait until new session is triggered
+        LOG_INF("Disk mounted, starting new session");
         state->state = MAIN_STATE_NEW_SESSION;
         break;
     }
     case MAIN_STATE_DISK_UNMOUNTED: {
+        LOG_INF("Disk unmounted, mounting disk");
         int ret = file_op_mount_disk();
-        if (ret != 0) {
+        if (ret > 0) {
             LOG_ERR("Cannot mount disk: %d", ret);
             return;
         }
 
         int file_count;
         ret = file_op_get_count_in_dir("", &file_count);
-        if (ret != 0) {
+        if (ret > 0) {
             LOG_ERR("Cannot get file count: %d", ret);
             return;
         }
@@ -106,6 +113,7 @@ void main_state_execute(main_state *state) {
         break;
     }
     case MAIN_STATE_NEW_SESSION: {
+        LOG_INF("Starting new session");
         new_session(state);
         break;
     }

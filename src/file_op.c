@@ -117,16 +117,7 @@ int file_op_mount_disk() {
     if (ret == FS_RET_OK) {
         LOG_INF("Disk mounted.");
         /* Try to unmount and remount the disk */
-        ret = fs_unmount(&mp);
-        if (ret != FS_RET_OK) {
-            LOG_ERR("Error unmounting disk");
-            return ret;
-        }
-        ret = fs_mount(&mp);
-        if (ret != FS_RET_OK) {
-            LOG_ERR("Error remounting disk");
-            return ret;
-        }
+        return 0;
     } else {
         LOG_ERR("Error mounting disk.");
         return ret;

@@ -14,6 +14,7 @@ enum main_state {
 typedef struct main_state_s {
     enum main_state state;
     struct k_msgq *can_msgq;
+    struct k_msgq *upload_msgq;
     struct can_frame can_message;
     struct fs_file_t file;
     uint16_t session_id;
@@ -21,7 +22,8 @@ typedef struct main_state_s {
     controllerMessage_Measurement measurement;
 } main_state;
 
-void main_state_init(main_state *state, struct k_msgq *can_msgq);
+void main_state_init(main_state *state, struct k_msgq *can_msgq,
+                     struct k_msgq *upload_msgq);
 void main_state_execute(main_state *state);
 
 #endif // MAIN_STATE_H_

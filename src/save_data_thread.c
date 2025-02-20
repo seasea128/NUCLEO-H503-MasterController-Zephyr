@@ -19,7 +19,7 @@ static controllerMessage_DataPoints dataPoints =
     controllerMessage_DataPoints_init_zero;
 
 void write_data_points(controllerMessage_DataPoints *dataPoints,
-                       struct fs_file_t *file) {
+                       struct fs_file_t *file, struct k_msgq *output_msgq) {
     uint8_t buffer[controllerMessage_DataPoints_size] = {0};
 
     pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
@@ -35,6 +35,7 @@ void write_data_points(controllerMessage_DataPoints *dataPoints,
 
     // Convert to Base64
     char base64_out[base64_len + 2];
+    memset(base64_out, 0, sizeof(base64_out));
     int ret = base64_encode(base64_out, sizeof(base64_out), &base64_len, buffer,
                             stream.bytes_written);
     if (ret) {
@@ -60,11 +61,15 @@ void write_data_points(controllerMessage_DataPoints *dataPoints,
         goto cleanup;
     }
 
-    // ret = fs_sync(file);
-    // if (ret < 0) {
-    //     LOG_ERR("Cannot write to file: %d", ret);
-    //     return;
-    // }
+    if (output_msgq != NULL) {
+        k_msgq_put(output_msgq, base64_out, K_NO_WAIT);
+    }
+
+    ret = fs_sync(file);
+    if (ret < 0) {
+        LOG_ERR("Cannot sync fs: %d", ret);
+        return;
+    }
 
 cleanup:
     // Clear struct
@@ -72,7 +77,8 @@ cleanup:
     dataPoints->measurement_count = 0;
 }
 
-void write_session(controllerMessage_Session *session, struct fs_file_t *file) {
+void write_session(controllerMessage_Session *session, struct fs_file_t *file,
+                   struct k_msgq *output_msgq) {
     uint8_t buffer[controllerMessage_DataPoints_size] = {0};
     pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
     bool result = pb_encode(&stream, &controllerMessage_Session_msg, session);
@@ -86,6 +92,7 @@ void write_session(controllerMessage_Session *session, struct fs_file_t *file) {
 
     // Convert to Base64
     char base64_out[base64_len + 2];
+    memset(base64_out, 0, sizeof(base64_out));
     int ret = base64_encode(base64_out, sizeof(base64_out), &base64_len, buffer,
                             stream.bytes_written);
     if (ret) {
@@ -114,11 +121,15 @@ void write_session(controllerMessage_Session *session, struct fs_file_t *file) {
         return;
     }
 
-    // ret = fs_sync(file);
-    // if (ret < 0) {
-    //     LOG_ERR("Cannot write to file: %d", ret);
-    //     return;
-    // }
+    if (output_msgq != NULL) {
+        k_msgq_put(output_msgq, base64_out, K_NO_WAIT);
+    }
+
+    ret = fs_sync(file);
+    if (ret < 0) {
+        LOG_ERR("Cannot sync fs: %d", ret);
+        return;
+    }
 }
 
 void save_data_thread() {
@@ -145,7 +156,7 @@ void save_data_thread() {
                     strncpy(dataPoints.controller_id, CONTROLLER_NAME,
                             sizeof(dataPoints.controller_id));
                 }
-                write_data_points(&dataPoints, &file);
+                write_data_points(&dataPoints, &file, NULL);
             }
             break;
         }
@@ -153,7 +164,7 @@ void save_data_thread() {
             LOG_INF("New session message received");
 
             if (dataPoints.measurement_count != 0) {
-                write_data_points(&dataPoints, &file);
+                write_data_points(&dataPoints, &file, NULL);
             }
 
             char file_name[128] = {0};
@@ -166,7 +177,7 @@ void save_data_thread() {
                 // TODO: Add timestamp
                 session.timestamp.nanos = 0;
                 session.timestamp.seconds = 0;
-                write_session(&session, &file);
+                write_session(&session, &file, NULL);
                 file_op_close_file(&file);
             }
 
@@ -178,7 +189,7 @@ void save_data_thread() {
 
             file_op_open_file(&file, file_name, FS_O_APPEND);
             LOG_INF("Opened new file");
-            write_session(&session, &file);
+            write_session(&session, &file, NULL);
             break;
         }
         case message_undefined: {

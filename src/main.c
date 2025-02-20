@@ -67,7 +67,7 @@ int main(void) {
     }
     LOG_INF("Initialized CAN");
 
-    main_state_init(&state, &distance_msgq);
+    main_state_init(&state, &distance_msgq, &upload_data_msgq);
     LOG_INF("Initialized main_state");
 
     // TODO: Get time from modem and set as internal time
