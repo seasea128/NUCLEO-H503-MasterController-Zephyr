@@ -23,8 +23,13 @@ typedef enum sim7600_resp_type_e {
 SIM7600_RESULT sim7600_send_at(char *cmd, size_t size_cmd, char *output,
                                size_t size_out, sim7600_resp_type resp_type);
 
-SIM7600_RESULT sim7600_publish_mqtt(char *topic, size_t size_topic,
-                                    uint8_t *payload, size_t size_payload);
+SIM7600_RESULT sim7600_publish_mqtt(uint8_t *payload, size_t size_payload);
+
+SIM7600_RESULT sim7600_set_topic_publish_mqtt(char *topic, size_t size_topic,
+                                              uint8_t *payload,
+                                              size_t size_payload);
+
+SIM7600_RESULT sim7600_set_topic_mqtt(char *topic, size_t size_topic);
 
 SIM7600_RESULT sim7600_close();
 

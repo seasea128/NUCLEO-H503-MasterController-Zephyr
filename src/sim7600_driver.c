@@ -23,7 +23,7 @@ static size_t rx_buf_pos = 0;
 #define SIM7600_MSGQ_SIZE sizeof(sim7600_msgq_item)
 #define SIM7600_MSGQ_MAX 10
 
-LOG_MODULE_REGISTER(sim7600, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(sim7600, LOG_LEVEL_INF);
 
 // Queues
 K_FIFO_DEFINE(sim7600_fifo);
@@ -131,22 +131,22 @@ static SIM7600_RESULT startup_parse() {
     char resp_buf[128] = {0};
     resp_buf[0] = '\0';
     while (true) {
-        LOG_INF("Reading data");
+        // LOG_INF("Reading data");
         unsigned char *result =
             (unsigned char *)k_fifo_get(&sim7600_fifo, K_MSEC(RX_TIMEOUT_MS));
 
-        LOG_INF("Result received");
+        // LOG_INF("Result received");
         if (result == NULL) {
             LOG_ERR("SIM7600 RX timeout");
             return SIM7600_RX_TIMEOUT;
         }
 
         if (strstr(result, "DONE")) {
-            LOG_INF("DONE detected - stopping");
+            // LOG_INF("DONE detected - stopping");
             if (strlen(resp_buf) + strlen(result) + 1 < 512) {
                 strcat(resp_buf, result);
             }
-            LOG_INF("Startup str: %.*s", strlen(resp_buf), resp_buf);
+            // LOG_INF("Startup str: %.*s", strlen(resp_buf), resp_buf);
             done_count++;
         }
         if (done_count >= 2) {
@@ -190,6 +190,7 @@ sim7600_init(char *mqtt_address, size_t addr_size) {
 
     // Get 2 string from fifo until timeout is triggered on startup, need to do
     // this since the modem takes quite a bit of time to startup
+    LOG_INF("Parsing startup string");
     startup_parse();
 
     // Disable echo mode
@@ -420,8 +421,41 @@ SIM7600_RESULT sim7600_set_topic_mqtt(char *topic, size_t size_topic) {
     return res;
 }
 
-SIM7600_RESULT sim7600_publish_mqtt(char *topic, size_t size_topic,
-                                    uint8_t *payload, size_t size_payload) {
+SIM7600_RESULT sim7600_publish_mqtt(uint8_t *payload, size_t size_payload) {
+    char output[256] = {0};
+    char at_cmd[256] = {0};
+    SIM7600_RESULT res;
+
+    // Set payload (AT_CMQTTPAYLOAD)
+    {
+        int size =
+            snprintf(at_cmd, sizeof(at_cmd), AT_MQTTPAYLOAD, 0, size_payload);
+
+        res = sim7600_send_at_with_message(at_cmd, size, payload, size_payload,
+                                           output, sizeof(output));
+    }
+    if (res != SIM7600_OK) {
+        return res;
+    }
+
+    // Publish (AT_CMQTTPUB)
+    {
+        int size = snprintf(at_cmd, sizeof(at_cmd), AT_MQTTPUB, 0, 1, 60);
+
+        res = sim7600_send_at(at_cmd, size, output, sizeof(output),
+                              sim7600_resp_after_status);
+    }
+    if (res != SIM7600_OK) {
+        return res;
+    }
+
+    LOG_INF("MQTT Publish response: %.*s", strlen(output), output);
+    return SIM7600_OK;
+}
+
+SIM7600_RESULT sim7600_set_topic_publish_mqtt(char *topic, size_t size_topic,
+                                              uint8_t *payload,
+                                              size_t size_payload) {
     // TODO: Add structure for using AT commands to send request
     LOG_INF("Sending MQTT packet");
     char output[256] = {0};
