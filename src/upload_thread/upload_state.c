@@ -19,7 +19,6 @@ void upload_state_execute(upload_state *state) {
     case UPLOAD_STATE_DISCONNECTED:
         // TODO: Reconnect to server
         LOG_DBG("State: disconnect");
-        sim7600_set_topic_mqtt("/data", sizeof("/data"));
         LOG_DBG("Switching state");
         state->state = UPLOAD_STATE_CONNECTED;
         break;

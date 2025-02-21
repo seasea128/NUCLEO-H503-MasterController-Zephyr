@@ -454,6 +454,8 @@ SIM7600_RESULT sim7600_publish_mqtt(uint8_t *payload, size_t size_payload) {
     return SIM7600_OK;
 }
 
+// The modem reset topic every time message is sent, therefore the driver needs
+// to set topic everytime message is sent
 SIM7600_RESULT sim7600_set_topic_publish_mqtt(char *topic, size_t size_topic,
                                               uint8_t *payload,
                                               size_t size_payload) {

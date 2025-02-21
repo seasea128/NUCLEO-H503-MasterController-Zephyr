@@ -8,7 +8,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/base64.h>
 
-LOG_MODULE_REGISTER(save_data_thread, LOG_LEVEL_WRN);
+LOG_MODULE_REGISTER(save_data_thread, LOG_LEVEL_INF);
 
 #define DISK_DRIVE_NAME "SD"
 
@@ -51,11 +51,11 @@ void write_data_points(controllerMessage_DataPoints *dataPoints,
     LOG_HEXDUMP_INF(base64_out, base64_len, "Packet in hex");
 
     // Write to SD card
-    // ret = fs_seek(file, 0, FS_SEEK_END);
-    // if (ret != 0) {
-    //    LOG_ERR("Cannot seek to end of file: %d", ret);
-    //    goto cleanup;
-    //}
+    ret = fs_seek(file, 0, FS_SEEK_END);
+    if (ret != 0) {
+        LOG_ERR("Cannot seek to end of file: %d", ret);
+        goto cleanup;
+    }
 
     ret = fs_write(file, base64_out, base64_len);
     if (ret < 0) {
@@ -122,11 +122,11 @@ void write_session(controllerMessage_Session *session, struct fs_file_t *file,
     LOG_HEXDUMP_INF(base64_out, base64_len, "Packet in hex");
 
     // Write to SD card
-    // ret = fs_seek(file, 0, FS_SEEK_END);
-    // if (ret != 0) {
-    //    LOG_ERR("Cannot seek to end of file: %d", ret);
-    //    return;
-    //}
+    ret = fs_seek(file, 0, FS_SEEK_END);
+    if (ret != 0) {
+        LOG_ERR("Cannot seek to end of file: %d", ret);
+        return;
+    }
 
     ret = fs_write(file, base64_out, base64_len);
     if (ret < 0) {
