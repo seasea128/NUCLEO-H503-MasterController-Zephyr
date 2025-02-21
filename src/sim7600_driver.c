@@ -314,7 +314,7 @@ static SIM7600_RESULT after_status_parse(char *output, size_t size_out) {
 
         // LOG_INF("Parsing: %.*s", strlen(result), result);
 
-        if (strcmp(result, "OK") == 0 || strcmp(result, "ERROR") == 0) {
+        if (strcmp(result, "OK") == 0) {
             // LOG_INF("OK/ERROR detected - stopping after another message");
 
             if (strlen(resp_buf) + strlen(result) + 1 < 512) {
