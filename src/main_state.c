@@ -10,7 +10,6 @@ LOG_MODULE_REGISTER(main_state, LOG_LEVEL_WRN);
 inline static void record_data(main_state *state) {
     memset(&state->can_message, 0, sizeof(struct can_frame));
     k_msgq_get(state->can_msgq, &state->can_message, K_FOREVER);
-    // TODO: Check if new session is started
 
     if (state->can_message.dlc != 2) {
         LOG_ERR("Error: Data length is not 2, continuing [Length: %d]",
@@ -18,7 +17,8 @@ inline static void record_data(main_state *state) {
         return;
     }
 
-    LOG_INF("Received distance: %u", *(uint16_t *)(&state->can_message.data));
+    LOG_INF("Received distance: %u, Sensor ID: 0x%02x",
+            *(uint16_t *)(&state->can_message.data), state->can_message.id);
 
     switch (state->can_message.id) {
     case 0x01:
@@ -46,6 +46,7 @@ inline static void record_data(main_state *state) {
         // TODO: Get timestamp and location data
         // TODO: Write data
         state->dataPoints.measurement_count = 10;
+        LOG_WRN("Saving/Sending new data");
         write_data_points(&state->dataPoints, &state->file, state->upload_msgq);
     }
 }
@@ -96,12 +97,12 @@ void main_state_execute(main_state *state) {
     switch (state->state) {
     case MAIN_STATE_DISK_MOUNTED: {
         // TODO: wait until new session is triggered
-        LOG_INF("Disk mounted, starting new session");
+        LOG_WRN("Disk mounted, starting new session");
         state->state = MAIN_STATE_NEW_SESSION;
         break;
     }
     case MAIN_STATE_DISK_UNMOUNTED: {
-        LOG_INF("Disk unmounted, mounting disk");
+        LOG_WRN("Disk unmounted, mounting disk");
         int ret = file_op_mount_disk();
         if (ret > 0) {
             LOG_ERR("Cannot mount disk: %d", ret);
@@ -121,7 +122,7 @@ void main_state_execute(main_state *state) {
         break;
     }
     case MAIN_STATE_NEW_SESSION: {
-        LOG_INF("Starting new session");
+        LOG_WRN("Starting new session");
         new_session(state);
         break;
     }

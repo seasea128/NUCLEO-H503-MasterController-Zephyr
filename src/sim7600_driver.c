@@ -69,8 +69,9 @@ static void sim7600_irq_handler(const struct device *dev, void *user_data) {
 
             sim7600_msgq_item item;
             strncpy(item.msg, rx_buf, sizeof(rx_buf));
-            // LOG_INF("IRQ: %.*s", strlen(rx_buf), rx_buf);
-            // int result = k_msgq_put(&sim7600_msgq, (void *)&item, K_NO_WAIT);
+            LOG_INF("IRQ: %.*s", strlen(rx_buf), rx_buf);
+            //  int result = k_msgq_put(&sim7600_msgq, (void *)&item,
+            //  K_NO_WAIT);
             k_fifo_put(&sim7600_fifo, item.msg);
             // LOG_INF("MSGQ_PUT: %d", result);
             /* reset the buffer (it was copied to the msgq) */
