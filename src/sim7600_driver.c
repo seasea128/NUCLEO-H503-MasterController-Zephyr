@@ -400,7 +400,6 @@ static SIM7600_RESULT sim7600_send_at_with_message(char *cmd, size_t size_cmd,
         uart_poll_out(dev, topic[i]);
 
     parse_response(sim7600_resp_normal, output, sizeof(output));
-    LOG_INF("Set MQTT Topic response: %.*s", strlen(output), output);
     return SIM7600_OK;
 }
 
@@ -418,6 +417,7 @@ SIM7600_RESULT sim7600_set_topic_mqtt(char *topic, size_t size_topic) {
     if (res != SIM7600_OK) {
         LOG_ERR("Error setting topic: %d", res);
     }
+    LOG_INF("Set MQTT Topic response: %.*s", strlen(output), output);
     return res;
 }
 
