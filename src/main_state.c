@@ -57,6 +57,7 @@ inline static void new_session(main_state *state) {
         write_session(&session, &state->file, state->upload_msgq);
     }
     state->session_id++;
+    state->dataPoints.session_id = state->session_id;
 
     char file_name[128] = {0};
 
@@ -69,8 +70,15 @@ inline static void new_session(main_state *state) {
         return;
     }
 
+    strncpy(state->dataPoints.controller_id, CONTROLLER_NAME,
+            sizeof(state->dataPoints.controller_id));
+
     // TODO: Write start session packet
     controllerMessage_Session session = controllerMessage_Session_init_zero;
+    strncpy(session.controller_id, CONTROLLER_NAME,
+            sizeof(session.controller_id));
+    session.isActive = true;
+    session.session_id = state->session_id;
     write_session(&session, &state->file, state->upload_msgq);
     state->state = MAIN_STATE_RECORD_DATA;
 }
