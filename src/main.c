@@ -23,7 +23,7 @@ struct k_fifo save_data_fifo;
 
 // TODO: Check if stack size need to be increased
 K_THREAD_STACK_DEFINE(save_data_stack, // 2048);
-                      controllerMessage_Packet_size + 4096);
+                      controllerMessage_Packet_size + 3072);
 struct k_thread save_data_thread_data;
 static k_tid_t upload_data_thread_id;
 
@@ -34,7 +34,7 @@ const struct device *const can_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_canbus));
 static struct gpio_dt_spec button_gpio =
     GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0});
 
-K_MSGQ_DEFINE(upload_data_msgq, 256, 10, 4);
+K_MSGQ_DEFINE(upload_data_msgq, controllerMessage_Packet_size, 25, 4);
 
 int main(void) {
     LOG_INF("Initializing");
