@@ -30,11 +30,10 @@
 };
 
 &spi1 {
-	status = "okay";
-
 	cs-gpios = <&gpioa 14 GPIO_ACTIVE_LOW>;
 	pinctrl-0 = <&spi1_miso_pa0 &spi1_mosi_pa7 &spi1_sck_pa2>;
 	pinctrl-names = "default";
+	status = "okay";
 
 	sdhc0: sdhc@0 {
 		status = "okay";
