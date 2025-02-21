@@ -1,4 +1,5 @@
 #include "upload_state.h"
+#include "Protobuf-FYP/proto/data.pb.h"
 #include "file_op.h"
 #include "sim7600_driver.h"
 #include <zephyr/kernel.h>
@@ -24,12 +25,26 @@ void upload_state_execute(upload_state *state) {
         break;
     case UPLOAD_STATE_CONNECTED: {
         LOG_DBG("State: conneceted");
-        uint8_t msg[512];
-        k_msgq_get(state->upload_data_msgq, msg, K_FOREVER);
+        char msg[controllerMessage_Packet_size] = {0};
+        LOG_INF("Remaining data: %d",
+                k_msgq_num_used_get(state->upload_data_msgq));
+        int result = k_msgq_get(state->upload_data_msgq, msg, K_FOREVER);
+        if (result != 0) {
+            LOG_WRN("Failed to retrieve message from queue: %d", result);
+            return;
+        }
+        if (strlen(msg) == 0) {
+            return;
+        }
 
         LOG_INF("Message received: %s", msg);
-
-        sim7600_publish_mqtt(msg, strlen(msg));
+        LOG_INF("Message size: %d", strlen(msg));
+        result = sim7600_set_topic_publish_mqtt("/data", sizeof("/data"), msg,
+                                                strlen(msg));
+        if (result != SIM7600_OK) {
+            LOG_ERR("Cannot publish message: %d", result);
+            return;
+        }
         break;
     case UPLOAD_STATE_READING_FILE:
     case UPLOAD_STATE_WAITING_DATA:
