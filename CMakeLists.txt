@@ -6,7 +6,7 @@ set(CMAKE_C_STANDARD 11)
 
 option(MC_LTO "Enable LTO for the main application" ON)
 set(MC_ControllerName "MC_1" CACHE STRING "Controller Name")
-set(MC_ServerAddress "94.130.24.30" CACHE STRING "Remote server address")
+set(MC_ServerAddress "tcp://94.130.24.30:1883" CACHE STRING "Remote server address")
 
 find_package(Zephyr)
 project(MasterController)
