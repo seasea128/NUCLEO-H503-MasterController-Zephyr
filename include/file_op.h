@@ -1,3 +1,5 @@
+#ifndef FILE_OP_H_
+#define FILE_OP_H_
 #include "zephyr/fs/fs.h"
 #include <ff.h>
 
@@ -12,3 +14,5 @@ int file_op_close_file(struct fs_file_t *file);
 int file_op_write(char *str, size_t str_size);
 
 int file_op_unmount_disk();
+
+#endif // FILE_OP_H_

@@ -1,3 +1,5 @@
+#ifndef SIM7600_DRIVER_H_
+#define SIM7600_DRIVER_H_
 #include <stddef.h>
 #include <stdint.h>
 
@@ -35,3 +37,5 @@ SIM7600_RESULT sim7600_close();
 
 SIM7600_RESULT
 sim7600_init(char *mqtt_address, size_t addr_size);
+
+#endif // SIM7600_DRIVER_H_
