@@ -20,6 +20,7 @@ if(MC_LTO)
 	set_property(TARGET app PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 
+# Compile protobuf into C headers
 zephyr_nanopb_sources(app ./Protobuf-FYP/proto/data.proto)
 zephyr_nanopb_sources(app ./Protobuf-FYP/proto/timestamp.proto)
 
@@ -28,17 +29,18 @@ target_include_directories(app PRIVATE
 	./include/upload_thread/
 )
 
+# Add defines for variable defined by CMake
 target_compile_definitions(app PRIVATE CONTROLLER_NAME="${MC_ControllerName}")
 target_compile_definitions(app PRIVATE SERVER_ADDR="${MC_ServerAddress}")
 
 target_sources(app PRIVATE 
 		      src/main.c
-				src/main_state.c
-			   src/file_op.c
-			   src/can.c
-			   src/save_data_thread.c
-			   src/message.c
-			   src/sim7600_driver.c
-				src/upload_thread/upload_thread.c
-				src/upload_thread/upload_state.c
+			  src/main_state.c
+			  src/file_op.c
+			  src/can.c
+			  src/save_data_thread.c
+			  src/message.c
+			  src/sim7600_driver.c
+			  src/upload_thread/upload_thread.c
+			  src/upload_thread/upload_state.c
 )

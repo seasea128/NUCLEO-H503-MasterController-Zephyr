@@ -8,7 +8,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/base64.h>
 
-LOG_MODULE_REGISTER(save_data_thread, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(save_data_thread, LOG_LEVEL_WRN);
 
 #define DISK_DRIVE_NAME "SD"
 

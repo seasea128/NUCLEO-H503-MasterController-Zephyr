@@ -10,6 +10,7 @@ LOG_MODULE_REGISTER(main_state, LOG_LEVEL_WRN);
 inline static void record_data(main_state *state) {
     memset(&state->can_message, 0, sizeof(struct can_frame));
     k_msgq_get(state->can_msgq, &state->can_message, K_FOREVER);
+    LOG_INF("Message size: %d", state->can_message.dlc);
 
     if (state->can_message.dlc != 2) {
         LOG_ERR("Error: Data length is not 2, continuing [Length: %d]",

@@ -34,7 +34,7 @@ const struct device *const can_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_canbus));
 static struct gpio_dt_spec button_gpio =
     GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0});
 
-K_MSGQ_DEFINE(upload_data_msgq, controllerMessage_Packet_size, 25, 4);
+K_MSGQ_DEFINE(upload_data_msgq, controllerMessage_Packet_size, 33, 4);
 
 int main(void) {
     LOG_INF("Initializing");
@@ -51,13 +51,13 @@ int main(void) {
         return 0;
     }
 
-    ret = sim7600_init(SERVER_ADDR, sizeof(SERVER_ADDR));
-    if (ret != SIM7600_OK) {
-        LOG_ERR("Error %d: Cannot initialize SIM7600", ret);
-        return ret;
-    }
+    // ret = sim7600_init(SERVER_ADDR, sizeof(SERVER_ADDR));
+    // if (ret != SIM7600_OK) {
+    //     LOG_ERR("Error %d: Cannot initialize SIM7600", ret);
+    //     return ret;
+    // }
 
-    LOG_INF("Initialized SIM7600");
+    // LOG_INF("Initialized SIM7600");
 
     // Initializing FDCAN
     ret = can_init(&distance_msgq, can_dev);
@@ -78,13 +78,13 @@ int main(void) {
 
     bool button_state = false;
 
-    LOG_INF("Creating thread");
-    upload_data_thread_id = k_thread_create(
-        &save_data_thread_data, save_data_stack,
-        K_THREAD_STACK_SIZEOF(save_data_stack), upload_thread, NULL, NULL, NULL,
-        K_LOWEST_APPLICATION_THREAD_PRIO, 0, K_NO_WAIT);
-    k_thread_name_set(upload_data_thread_id, "upload_data");
-    LOG_INF("Finish creating thread");
+    // LOG_INF("Creating thread");
+    // upload_data_thread_id = k_thread_create(
+    //     &save_data_thread_data, save_data_stack,
+    //     K_THREAD_STACK_SIZEOF(save_data_stack), upload_thread, NULL, NULL,
+    //     NULL, K_LOWEST_APPLICATION_THREAD_PRIO, 0, K_NO_WAIT);
+    // k_thread_name_set(upload_data_thread_id, "upload_data");
+    // LOG_INF("Finish creating thread");
 
     // Use onboard button to exit loop so that the filesystem can be
     // unmounted for data safety.
