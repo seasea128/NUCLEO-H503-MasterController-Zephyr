@@ -26,10 +26,9 @@ int can_init(struct k_msgq *message_queue, const struct device *can_def) {
         return ret;
     }
 
-    const struct can_filter my_filter = {
-        .flags = 0U, .id = 0x000, .mask = 0x03F8};
+    const struct can_filter filter = {.flags = 0U, .id = 0x000, .mask = 0x03F8};
 
-    int filter_id = can_add_rx_filter_msgq(can_def, message_queue, &my_filter);
+    int filter_id = can_add_rx_filter_msgq(can_def, message_queue, &filter);
 
     // int filter_id = can_add_rx_filter(can_def, &can_callback, NULL,
     // &my_filter);

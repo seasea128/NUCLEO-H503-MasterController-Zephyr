@@ -22,7 +22,7 @@ static struct fs_mount_t mp = {
     .type = FS_FATFS, .fs_data = &fat_fs, .mnt_point = DISK_MOUNT_PT};
 
 static int get_path(char *file_path, size_t path_size, char *file_name) {
-    strncpy(file_path, disk_mount_pt, sizeof(path_size));
+    strncpy(file_path, disk_mount_pt, path_size);
 
     int mountLength = strlen(disk_mount_pt);
     if (file_name != NULL) {

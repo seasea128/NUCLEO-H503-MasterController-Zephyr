@@ -345,7 +345,7 @@ static SIM7600_RESULT after_status_parse(char *output, size_t size_out) {
     return SIM7600_OK;
 }
 
-// TODO: Implement parsing for various AT commands, can use same parser for most
+// Implement parsing for various AT commands, can use same parser for most
 // commands except MQTT connect/pub/sub
 static SIM7600_RESULT parse_response(sim7600_resp_type resp_type, char *output,
                                      size_t size_out) {
@@ -357,7 +357,7 @@ static SIM7600_RESULT parse_response(sim7600_resp_type resp_type, char *output,
     }
 }
 
-// TODO: 1 message at a time, no need for another thread?, just send the thing
+// 1 message at a time, no need for another thread?, just send the thing
 // and parse output here. The command sent is already known so it would just be
 // a big switch.
 // Edit: Might actually need another thread for detecting MQTT's published
@@ -382,8 +382,10 @@ static SIM7600_RESULT sim7600_send_at_with_message(char *cmd, size_t size_cmd,
                                                    size_t size_topic,
                                                    char *output,
                                                    size_t size_output) {
+    k_mutex_lock(&sim7600_mutex, K_FOREVER);
     for (int i = 0; i < size_cmd; i++)
         uart_poll_out(dev, cmd[i]);
+    k_mutex_unlock(&sim7600_mutex);
 
     while (true) {
         unsigned char *result =
@@ -397,10 +399,12 @@ static SIM7600_RESULT sim7600_send_at_with_message(char *cmd, size_t size_cmd,
         }
     }
 
+    k_mutex_lock(&sim7600_mutex, K_FOREVER);
     for (int i = 0; i < size_topic; i++)
         uart_poll_out(dev, topic[i]);
 
     parse_response(sim7600_resp_normal, output, sizeof(output));
+    k_mutex_unlock(&sim7600_mutex);
     return SIM7600_OK;
 }
 
