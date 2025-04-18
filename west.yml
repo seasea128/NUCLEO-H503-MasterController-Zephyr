@@ -8,8 +8,8 @@ manifest:
       url-base: https://github.com/seasea128
   projects:
     - name: zephyr
-      remote: zephyrproject-rtos
-      revision: v4.0.0
+      remote: private
+      revision: rtc_fix
       # revision: main
       import:
         name-allowlist:
