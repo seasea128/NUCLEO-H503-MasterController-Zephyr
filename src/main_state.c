@@ -9,7 +9,14 @@ LOG_MODULE_REGISTER(main_state, LOG_LEVEL_WRN);
 
 inline static void record_data(main_state *state) {
     memset(&state->can_message, 0, sizeof(struct can_frame));
-    k_msgq_get(state->can_msgq, &state->can_message, K_FOREVER);
+    int ret = k_msgq_get(state->can_msgq, &state->can_message, K_NO_WAIT);
+    if (ret == -EAGAIN || ret == -ENOMSG) {
+        return;
+    } else if (ret < 0) {
+        LOG_WRN("Cannot get message from queue: %d", ret);
+        return;
+    }
+
     LOG_INF("Message size: %d", state->can_message.dlc);
 
     if (state->can_message.dlc != 2) {
@@ -48,6 +55,11 @@ inline static void record_data(main_state *state) {
         // TODO: Write data
         state->dataPoints.measurement_count = 10;
         LOG_WRN("Saving/Sending new data");
+        int ret = fs_seek(&state->file, 0, FS_SEEK_END);
+        if (ret != 0) {
+            LOG_ERR("Cannot seek file to end for writing: %d", ret);
+            return;
+        }
         write_data_points(&state->dataPoints, &state->file, state->upload_msgq);
     }
 }
@@ -57,6 +69,11 @@ inline static void new_session(main_state *state) {
         // TODO: Write closing session packet and close file
         controllerMessage_Session session = controllerMessage_Session_init_zero;
         write_session(&session, &state->file, state->upload_msgq);
+        int ret = file_op_close_file(&state->file);
+        if (ret != 0) {
+            LOG_ERR("Cannot close file: %d", ret);
+            return;
+        }
     }
     state->session_id++;
     state->dataPoints.session_id = state->session_id;
@@ -81,6 +98,12 @@ inline static void new_session(main_state *state) {
             sizeof(session.controller_id));
     session.isActive = true;
     session.session_id = state->session_id;
+
+    ret = fs_seek(&state->file, 0, FS_SEEK_END);
+    if (ret != 0) {
+        LOG_ERR("Cannot seek file to end for writing: %d", ret);
+        return;
+    }
     write_session(&session, &state->file, state->upload_msgq);
     state->state = MAIN_STATE_RECORD_DATA;
 }
@@ -92,6 +115,7 @@ void main_state_init(main_state *state, struct k_msgq *can_msgq,
     state->upload_msgq = upload_msgq;
     state->state = MAIN_STATE_DISK_UNMOUNTED;
     memset(&state->dataPoints, 0, sizeof(controllerMessage_DataPoints));
+    upload_state_init(&state->upload, upload_msgq);
 }
 
 void main_state_execute(main_state *state) {
@@ -105,14 +129,14 @@ void main_state_execute(main_state *state) {
     case MAIN_STATE_DISK_UNMOUNTED: {
         LOG_WRN("Disk unmounted, mounting disk");
         int ret = file_op_mount_disk();
-        if (ret > 0) {
+        if (ret < 0) {
             LOG_ERR("Cannot mount disk: %d", ret);
             return;
         }
 
         int file_count;
         ret = file_op_get_count_in_dir("", &file_count);
-        if (ret > 0) {
+        if (ret < 0) {
             LOG_ERR("Cannot get file count: %d", ret);
             return;
         }
@@ -125,10 +149,12 @@ void main_state_execute(main_state *state) {
     case MAIN_STATE_NEW_SESSION: {
         LOG_WRN("Starting new session");
         new_session(state);
+        upload_state_execute(&state->upload, &state->file);
         break;
     }
     case MAIN_STATE_RECORD_DATA: {
         record_data(state);
+        upload_state_execute(&state->upload, &state->file);
         break;
     }
     }

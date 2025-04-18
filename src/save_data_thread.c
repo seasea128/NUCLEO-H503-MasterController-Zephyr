@@ -8,7 +8,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/base64.h>
 
-LOG_MODULE_REGISTER(save_data_thread, LOG_LEVEL_WRN);
+LOG_MODULE_REGISTER(save_data_thread, LOG_LEVEL_INF);
 
 #define DISK_DRIVE_NAME "SD"
 
@@ -45,7 +45,7 @@ void write_data_points(controllerMessage_DataPoints *dataPoints,
         return;
     }
 
-    base64_out[++base64_len] = '\n';
+    base64_out[base64_len++] = '\n';
 
     LOG_INF("Data point packet: %.*s", base64_len, base64_out);
     LOG_HEXDUMP_INF(base64_out, base64_len, "Packet in hex");
@@ -116,7 +116,12 @@ void write_session(controllerMessage_Session *session, struct fs_file_t *file,
     LOG_HEXDUMP_INF(base64_out, strlen(base64_out),
                     "Packet in hex before newline");
 
-    base64_out[++base64_len] = '\n';
+    LOG_INF("Length before inc: %d", base64_len);
+    base64_out[base64_len++] = '\n';
+    LOG_INF("Length after inc: %d", base64_len);
+
+    LOG_HEXDUMP_INF(base64_out, strlen(base64_out) + 4,
+                    "Packet in hex after newline");
 
     LOG_WRN("Session packet: %.*s", base64_len, base64_out);
     LOG_HEXDUMP_INF(base64_out, base64_len, "Packet in hex");

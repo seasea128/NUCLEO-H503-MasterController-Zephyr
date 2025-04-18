@@ -1,6 +1,14 @@
+#ifndef SIM7600_AT_CMD_H_
+#define SIM7600_AT_CMD_H_
+
 // Init Commands
 #define AT_CPIN "AT+CPIN?\r"
 #define ATE "ATE0\r"
+
+// Time Command
+#define AT_CCLK "AT+CCLK?\r"
+#define AT_CNTP_SET "AT+CNTP=\"%s\",0\r"
+#define AT_CNTP "AT+CNTP\r"
 
 // MQTT Commands
 #define AT_MQTTSTART "AT+CMQTTSTART\r"
@@ -34,3 +42,5 @@
 #define AT_MQTTDIS "AT+CMQTTDISC=%d,%d\r" // Client index, timeout
 #define AT_MQTTREL "AT+CMQTTREL=%d\r"     // Client indes
 #define AT_MQTTSTOP "AT+CMQTTSTOP\r"
+
+#endif // SIM7600_AT_CMD_H_

@@ -41,7 +41,7 @@ int file_op_open_file(struct fs_file_t *file, char *file_name,
     fs_file_t_init(file);
     get_path(file_path, sizeof(file_path), file_name);
 
-    int ret = fs_open(file, file_path, FS_O_WRITE | FS_O_CREATE | flags);
+    int ret = fs_open(file, file_path, FS_O_RDWR | FS_O_CREATE | flags);
     if (ret != 0) {
         LOG_ERR("Cannot open file: %d", ret);
         return ret;
