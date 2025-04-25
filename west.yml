@@ -8,9 +8,8 @@ manifest:
       url-base: https://github.com/seasea128
   projects:
     - name: zephyr
-      remote: private
-      revision: rtc_fix
-      # revision: main
+      remote: zephyrproject-rtos
+      revision: v4.0.0
       import:
         name-allowlist:
           - cmsis
@@ -19,7 +18,6 @@ manifest:
     - name: nanopb
       remote: nanopb
       revision: 0.4.9.1
-      # revision: 7307ce399b81ddcb3c3a5dc862c52d4754328d38
       path: modules/lib/nanopb
     - name: Protobuf-FYP
       remote: private
