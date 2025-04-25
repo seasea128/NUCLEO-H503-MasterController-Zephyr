@@ -70,17 +70,17 @@ void write_data_points(controllerMessage_DataPoints *dataPoints,
         }
     }
 
-    ret = fs_sync(file);
-    if (ret < 0) {
-        LOG_ERR("Cannot sync fs: %d", ret);
-        return;
-    }
+    // ret = fs_sync(file);
+    // if (ret < 0) {
+    //     LOG_ERR("Cannot sync fs: %d", ret);
+    //     return;
+    // }
 
 cleanup:
     // Clear struct
-    memset(&dataPoints->measurement, 0,
-           sizeof(controllerMessage_Measurement) *
-               sizeof(dataPoints->measurement));
+    // memset(&dataPoints->measurement, 0,
+    //       sizeof(controllerMessage_Measurement) *
+    //           sizeof(dataPoints->measurement));
     dataPoints->measurement_count = 0;
 }
 
