@@ -98,6 +98,7 @@ inline static void new_session(main_state *state) {
             sizeof(session.controller_id));
     session.isActive = true;
     session.session_id = state->session_id;
+    // TODO: Add timestamp
 
     ret = fs_seek(&state->file, 0, FS_SEEK_END);
     if (ret != 0) {

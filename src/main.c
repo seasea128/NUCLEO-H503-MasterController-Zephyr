@@ -124,14 +124,13 @@ int main(void) {
     main_state_init(&state, &distance_msgq, NULL);
     LOG_INF("Initialized main_state");
 
-    // TODO: Get time from modem and set as internal time
     if (!device_is_ready(rtc)) {
         LOG_INF("RTC is not ready");
     }
 
     set_rtc_from_modem();
 
-    k_sleep(K_MSEC(5000));
+    k_sleep(K_MSEC(4834));
 
     struct rtc_time tm;
     ret = rtc_get_time(rtc, &tm);
