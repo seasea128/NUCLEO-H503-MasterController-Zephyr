@@ -76,7 +76,7 @@ void upload_state_execute(upload_state *state, struct fs_file_t *file) {
             }
         }
 
-        state->data[state->data_index++] = '\0';
+        state->data[state->data_index] = '\0';
         LOG_INF("Data read: %s", state->data);
 
         off_t new_offset = fs_tell(file);
