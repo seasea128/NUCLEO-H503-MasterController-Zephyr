@@ -23,7 +23,7 @@ static size_t rx_buf_pos = 0;
 #define SIM7600_MSGQ_SIZE sizeof(sim7600_msgq_item)
 #define SIM7600_MSGQ_MAX 10
 
-LOG_MODULE_REGISTER(sim7600, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(sim7600, LOG_LEVEL_WRN);
 
 // Queues
 K_FIFO_DEFINE(sim7600_fifo);

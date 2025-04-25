@@ -34,7 +34,7 @@ const struct device *const can_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_canbus));
 static struct gpio_dt_spec button_gpio =
     GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0});
 
-K_MSGQ_DEFINE(upload_data_msgq, controllerMessage_Packet_size, 27, 4);
+K_MSGQ_DEFINE(upload_data_msgq, controllerMessage_Packet_size, 24, 4);
 
 int main(void) {
     LOG_INF("Initializing");
@@ -74,7 +74,7 @@ int main(void) {
 
     LOG_INF("Button port: %s pin: %d", button_gpio.port->name, button_gpio.pin);
 
-    // file_op_mount_disk();
+    file_op_mount_disk();
 
     bool button_state = false;
 
