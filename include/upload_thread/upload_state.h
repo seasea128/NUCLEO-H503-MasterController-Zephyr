@@ -15,11 +15,12 @@ enum upload_state {
 
 typedef struct upload_state_s {
     char data[controllerMessage_Packet_size];
+    char modem_output[256];
     enum upload_state state;
     size_t upload_file_offset;
     size_t data_index;
     int current_session_id;
-
+    bool ok_detected;
 } upload_state;
 
 void upload_state_init(upload_state *state, struct k_msgq *upload_data_msgq);

@@ -1,5 +1,6 @@
 #include "upload_state.h"
 #include "Protobuf-FYP/proto/data.pb.h"
+#include "assert.h"
 #include "sim7600_driver.h"
 #include "zephyr/fs/fs.h"
 #include <zephyr/logging/log.h>
@@ -8,11 +9,43 @@ LOG_MODULE_REGISTER(upload_state, LOG_LEVEL_INF);
 
 void upload_state_init(upload_state *state, struct k_msgq *upload_data_msgq) {
     state->state = UPLOAD_STATE_DISCONNECTED;
+    state->ok_detected = false;
+    state->data_index = 0;
+    state->current_session_id = 0;
     state->upload_file_offset = 0;
     memset(state->data, 0, sizeof(state->data));
+    memset(state->modem_output, 0, sizeof(state->modem_output));
 }
 
-// TODO: Make this non-blocking
+static void upload_state_receiving(upload_state *state) {
+    assert(sizeof(state->modem_output) == 256);
+    SIM7600_RESULT response = sim7600_check_resp(
+        state->modem_output, sizeof(state->modem_output), state->ok_detected);
+    switch (response) {
+    case SIM7600_OK: {
+        LOG_INF("SIM7600_OK received");
+        if (state->ok_detected) {
+            // TODO: switch state to reading file
+            LOG_INF("switching to UPLOAD_STATE_CONNECTED_READING_FILE");
+            state->state = UPLOAD_STATE_CONNECTED_READING_FILE;
+            memset(state->modem_output, 0, sizeof(state->modem_output));
+        }
+        break;
+    }
+    case SIM7600_OK_DETECTED: {
+        LOG_INF("SIM7600_OK_DETECTED received");
+        state->ok_detected = true;
+        break;
+    }
+    case SIM7600_NO_NEW_DATA:
+        LOG_DBG("No new data");
+        break;
+    default:
+        LOG_INF("other returncode received: %d", response);
+        break;
+    }
+}
+
 void upload_state_execute(upload_state *state, struct fs_file_t *file) {
     switch (state->state) {
     case UPLOAD_STATE_DISCONNECTED:
@@ -25,7 +58,6 @@ void upload_state_execute(upload_state *state, struct fs_file_t *file) {
         LOG_DBG("State: conneceted");
         size_t data_len = strlen(state->data);
 
-        LOG_INF("Message received: %s", state->data);
         LOG_INF("Message size: %d", data_len);
         int result = sim7600_set_topic_publish_mqtt("/data", sizeof("/data"),
                                                     state->data, data_len);
@@ -35,13 +67,11 @@ void upload_state_execute(upload_state *state, struct fs_file_t *file) {
         }
 
         LOG_INF("Switching state");
-        // TODO: Switch to receiving state
         state->state = UPLOAD_STATE_CONNECTED_RECEIVING;
         break;
     }
     case UPLOAD_STATE_CONNECTED_RECEIVING:
-        // TODO: Check when response come back
-        state->state = UPLOAD_STATE_CONNECTED_READING_FILE;
+        upload_state_receiving(state);
         break;
     case UPLOAD_STATE_CONNECTED_READING_FILE:
         LOG_DBG("State: Reading file");
@@ -76,15 +106,15 @@ void upload_state_execute(upload_state *state, struct fs_file_t *file) {
             }
         }
 
-        state->data[state->data_index] = '\0';
-        LOG_INF("Data read: %s", state->data);
+        state->data[state->data_index - 1] = '\0';
+        LOG_INF("Data read: %d", state->data_index);
 
         off_t new_offset = fs_tell(file);
         if (new_offset < 0) {
             LOG_WRN("Cannot get new offset: %ld", new_offset);
             break;
         }
-        LOG_DBG("New offset: %d", new_offset);
+        LOG_DBG("New offset: %ld", new_offset);
 
         state->upload_file_offset = new_offset;
         state->state = UPLOAD_STATE_CONNECTED_SEND;

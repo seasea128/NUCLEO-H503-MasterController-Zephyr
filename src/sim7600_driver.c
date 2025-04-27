@@ -23,11 +23,11 @@ static size_t rx_buf_pos = 0;
 #define SIM7600_MSGQ_SIZE sizeof(sim7600_msgq_item)
 #define SIM7600_MSGQ_MAX 10
 
-LOG_MODULE_REGISTER(sim7600, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(sim7600, LOG_LEVEL_WRN);
 
 // Queues
-K_FIFO_DEFINE(sim7600_fifo);
-// K_MSGQ_DEFINE(sim7600_msgq, SIM7600_MSGQ_SIZE, SIM7600_MSGQ_MAX, 1);
+// K_FIFO_DEFINE(sim7600_fifo);
+K_MSGQ_DEFINE(sim7600_msgq, SIM7600_MSGQ_SIZE, SIM7600_MSGQ_MAX, 1);
 
 // Threads
 void sim7600_worker_handler();
@@ -70,10 +70,9 @@ static void sim7600_irq_handler(const struct device *dev, void *user_data) {
             sim7600_msgq_item item;
             strncpy(item.msg, rx_buf, sizeof(rx_buf));
             LOG_INF("IRQ: %.*s", strlen(rx_buf), rx_buf);
-            //  int result = k_msgq_put(&sim7600_msgq, (void *)&item,
-            //  K_NO_WAIT);
-            k_fifo_put(&sim7600_fifo, item.msg);
-            // LOG_INF("MSGQ_PUT: %d", result);
+            int result = k_msgq_put(&sim7600_msgq, (void *)&item, K_NO_WAIT);
+            // k_fifo_put(&sim7600_fifo, item.msg);
+            //  LOG_INF("MSGQ_PUT: %d", result);
             /* reset the buffer (it was copied to the msgq) */
             rx_buf_pos = 0;
         } else if (c == '>') {
@@ -86,10 +85,10 @@ static void sim7600_irq_handler(const struct device *dev, void *user_data) {
 
             sim7600_msgq_item item;
             strncpy(item.msg, rx_buf, sizeof(rx_buf));
-            // LOG_INF("IRQ: %.*s", strlen(rx_buf), rx_buf);
-            // int result = k_msgq_put(&sim7600_msgq, (void *)&item, K_NO_WAIT);
-            k_fifo_put(&sim7600_fifo, item.msg);
-            // LOG_INF("MSGQ_PUT: %d", result);
+            LOG_INF("IRQ: %.*s", strlen(rx_buf), rx_buf);
+            int result = k_msgq_put(&sim7600_msgq, (void *)&item, K_NO_WAIT);
+            // k_fifo_put(&sim7600_fifo, item.msg);
+            //  LOG_INF("MSGQ_PUT: %d", result);
             /* reset the buffer (it was copied to the msgq) */
             rx_buf_pos = 0;
         } else if (rx_buf_pos < (sizeof(rx_buf) - 1)) {
@@ -133,14 +132,23 @@ static SIM7600_RESULT startup_parse() {
     resp_buf[0] = '\0';
     while (true) {
         // LOG_INF("Reading data");
-        unsigned char *result =
-            (unsigned char *)k_fifo_get(&sim7600_fifo, K_MSEC(RX_TIMEOUT_MS));
+        char result[BUFFER_SIZE];
+        int err_code = k_msgq_get(&sim7600_msgq, result, K_MSEC(RX_TIMEOUT_MS));
+        // unsigned char *result =
+        // (unsigned char *)k_fifo_get(&sim7600_fifo,
+        // K_MSEC(RX_TIMEOUT_MS));
 
-        // LOG_INF("Result received");
-        if (result == NULL) {
-            LOG_ERR("SIM7600 RX timeout");
+        if (err_code == -35 || err_code == -11) {
+            LOG_INF("Startup timeout triggered");
+            continue;
+        }
+
+        if (err_code != 0) {
+            LOG_ERR("SIM7600 RX timeout: %d", err_code);
             return SIM7600_RX_TIMEOUT;
         }
+
+        // LOG_INF("Result received");
 
         if (strstr(result, "DONE")) {
             // LOG_INF("DONE detected - stopping");
@@ -175,7 +183,7 @@ sim7600_init(char *mqtt_address, size_t addr_size) {
         return SIM7600_INIT_ERROR;
     }
 
-    k_fifo_init(&sim7600_fifo);
+    // k_fifo_init(&sim7600_fifo);
     k_mutex_init(&sim7600_mutex);
     // k_thread_start(sim7600_worker_tid);
 
@@ -274,11 +282,17 @@ static SIM7600_RESULT normal_parse(char *output, size_t size_out) {
     char resp_buf[128] = {0};
     resp_buf[0] = '\0';
     while (parsing) {
-        unsigned char *result =
-            (unsigned char *)k_fifo_get(&sim7600_fifo, K_MSEC(RX_TIMEOUT_MS));
+        char result[BUFFER_SIZE];
+        int err_code = k_msgq_get(&sim7600_msgq, result, K_MSEC(RX_TIMEOUT_MS));
+        // unsigned char *result =
+        // (unsigned char *)k_fifo_get(&sim7600_fifo,
+        // K_MSEC(RX_TIMEOUT_MS));
+        if (err_code == -35 || err_code == -11) {
+            continue;
+        }
 
-        if (result == NULL) {
-            LOG_ERR("SIM7600 RX timeout");
+        if (err_code != 0) {
+            LOG_ERR("SIM7600 normal parse RX timeout: %d", err_code);
             return SIM7600_RX_TIMEOUT;
         }
 
@@ -305,11 +319,17 @@ static SIM7600_RESULT after_status_parse(char *output, size_t size_out) {
     char resp_buf[256] = {0};
     resp_buf[0] = '\0';
     while (parsing) {
-        unsigned char *result =
-            (unsigned char *)k_fifo_get(&sim7600_fifo, K_MSEC(RX_TIMEOUT_MS));
+        char result[BUFFER_SIZE];
+        int err_code = k_msgq_get(&sim7600_msgq, result, K_MSEC(RX_TIMEOUT_MS));
+        // unsigned char *result =
+        // (unsigned char *)k_fifo_get(&sim7600_fifo,
+        // K_MSEC(RX_TIMEOUT_MS));
+        if (err_code == -35 || err_code == -11) {
+            continue;
+        }
 
-        if (result == NULL) {
-            LOG_ERR("SIM7600 RX timeout");
+        if (err_code != 0) {
+            LOG_ERR("SIM7600 after status RX timeout: %d", err_code);
             return SIM7600_RX_TIMEOUT;
         }
 
@@ -322,11 +342,14 @@ static SIM7600_RESULT after_status_parse(char *output, size_t size_out) {
                 strcat(resp_buf, result);
             }
 
-            unsigned char *result = (unsigned char *)k_fifo_get(
-                &sim7600_fifo, K_MSEC(RX_TIMEOUT_MS));
+            int err_code =
+                k_msgq_get(&sim7600_msgq, result, K_MSEC(RX_TIMEOUT_MS));
+            // unsigned char *result =
+            // (unsigned char *)k_fifo_get(&sim7600_fifo,
+            // K_MSEC(RX_TIMEOUT_MS));
 
-            if (result == NULL) {
-                LOG_ERR("SIM7600 RX timeout");
+            if (err_code != 0) {
+                LOG_ERR("SIM7600 after status OK RX timeout: %d", err_code);
                 return SIM7600_RX_TIMEOUT;
             }
 
@@ -352,8 +375,13 @@ static SIM7600_RESULT parse_response(sim7600_resp_type resp_type, char *output,
     switch (resp_type) {
     case sim7600_resp_after_status:
         return after_status_parse(output, size_out);
-    default:
+    case sim7600_resp_normal:
         return normal_parse(output, size_out);
+    case sim7600_resp_no_parse:
+        return SIM7600_OK;
+    case sim7600_resp_undefined:
+        LOG_ERR("sim7600_resp_type given is undefined: %d", resp_type);
+        return SIM7600_RESP_TYPE_UNDEFINED;
     }
 }
 
@@ -388,10 +416,18 @@ static SIM7600_RESULT sim7600_send_at_with_message(char *cmd, size_t size_cmd,
     k_mutex_unlock(&sim7600_mutex);
 
     while (true) {
-        unsigned char *result =
-            (unsigned char *)k_fifo_get(&sim7600_fifo, K_MSEC(RX_TIMEOUT_MS));
-        if (result == NULL) {
-            return SIM7600_RESP_NULL;
+        char result[BUFFER_SIZE];
+        int err_code = k_msgq_get(&sim7600_msgq, result, K_MSEC(RX_TIMEOUT_MS));
+        // unsigned char *result =
+        // (unsigned char *)k_fifo_get(&sim7600_fifo,
+        // K_MSEC(RX_TIMEOUT_MS));
+        if (err_code == -35 || err_code == -11) {
+            continue;
+        }
+
+        if (err_code != 0) {
+            LOG_ERR("SIM7600 send AT with message RX timeout: %d", err_code);
+            return SIM7600_RX_TIMEOUT;
         }
 
         if (result[0] == '>') {
@@ -448,7 +484,7 @@ SIM7600_RESULT sim7600_publish_mqtt(uint8_t *payload, size_t size_payload) {
         int size = snprintf(at_cmd, sizeof(at_cmd), AT_MQTTPUB, 0, 1, 60);
 
         res = sim7600_send_at(at_cmd, size, output, sizeof(output),
-                              sim7600_resp_after_status);
+                              sim7600_resp_no_parse);
     }
     if (res != SIM7600_OK) {
         return res;
@@ -491,12 +527,44 @@ SIM7600_RESULT sim7600_set_topic_publish_mqtt(char *topic, size_t size_topic,
         int size = snprintf(at_cmd, sizeof(at_cmd), AT_MQTTPUB, 0, 1, 60);
 
         res = sim7600_send_at(at_cmd, size, output, sizeof(output),
-                              sim7600_resp_after_status);
+                              sim7600_resp_no_parse);
     }
     if (res != SIM7600_OK) {
         return res;
     }
 
-    LOG_INF("MQTT Publish response: %.*s", strlen(output), output);
+    LOG_WRN("MQTT Publish response: %.*s", strlen(output), output);
+    return SIM7600_OK;
+}
+
+SIM7600_RESULT sim7600_check_resp(char *output, size_t output_size,
+                                  bool print_resp) {
+    char result[BUFFER_SIZE];
+    int err_code = k_msgq_get(&sim7600_msgq, result, K_NO_WAIT);
+
+    if (err_code == -35 || err_code == -11) {
+        return SIM7600_NO_NEW_DATA;
+    } else if (err_code != 0) {
+        LOG_ERR("SIM7600 check_resp error: %d", err_code);
+        return SIM7600_RX_TIMEOUT;
+    }
+
+    LOG_HEXDUMP_INF(output, output_size, "Output");
+    LOG_INF("Parsing: %.*s, %d", strlen(result), result, strlen(result));
+
+    if (strlen(output) + strlen(result) + 1 < 512) {
+        strcat(output, result);
+        LOG_INF("Parsing: %.*s", strlen(output), output);
+    }
+
+    if (strcmp(result, "OK") == 0) {
+        LOG_WRN("Detected OK in driver");
+        return SIM7600_OK_DETECTED;
+    }
+
+    if (print_resp) {
+        LOG_WRN("Response: %s", output);
+    }
+
     return SIM7600_OK;
 }

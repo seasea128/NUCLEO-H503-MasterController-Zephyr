@@ -8,7 +8,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/base64.h>
 
-LOG_MODULE_REGISTER(save_data_thread, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(save_data_thread, LOG_LEVEL_WRN);
 
 #define DISK_DRIVE_NAME "SD"
 
@@ -33,7 +33,7 @@ void write_data_points(controllerMessage_DataPoints *dataPoints,
     }
     size_t base64_len;
     base64_encode(NULL, 0, &base64_len, buffer, stream.bytes_written);
-    LOG_INF("Base64 length: %d", base64_len);
+    LOG_WRN("Base64 length: %d", base64_len);
 
     // Convert to Base64
     char base64_out[base64_len + 2];
@@ -48,6 +48,7 @@ void write_data_points(controllerMessage_DataPoints *dataPoints,
     base64_out[base64_len++] = '\n';
 
     LOG_INF("Data point packet: %.*s", base64_len, base64_out);
+    LOG_INF("Data point packet size: %d", base64_len);
     LOG_HEXDUMP_INF(base64_out, base64_len, "Packet in hex");
 
     // Write to SD card
@@ -70,11 +71,11 @@ void write_data_points(controllerMessage_DataPoints *dataPoints,
         }
     }
 
-    // ret = fs_sync(file);
-    // if (ret < 0) {
-    //     LOG_ERR("Cannot sync fs: %d", ret);
-    //     return;
-    // }
+    ret = fs_sync(file);
+    if (ret < 0) {
+        LOG_ERR("Cannot sync fs: %d", ret);
+        return;
+    }
 
 cleanup:
     // Clear struct

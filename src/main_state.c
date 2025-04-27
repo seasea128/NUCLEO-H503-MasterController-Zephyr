@@ -1,14 +1,19 @@
 #include "main_state.h"
+#include "Protobuf-FYP/proto/data.pb.h"
 #include "file_op.h"
 #include "save_data_thread.h"
+#include "zephyr/drivers/rtc.h"
+#include <time.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/timeutil.h>
 
 // LOG_MODULE_REGISTER(main_state, CONFIG_LOG_DEFAULT_LEVEL);
-LOG_MODULE_REGISTER(main_state, LOG_LEVEL_WRN);
+LOG_MODULE_REGISTER(main_state, LOG_LEVEL_INF);
+
+extern const struct device *const rtc;
 
 inline static void record_data(main_state *state) {
-    memset(&state->can_message, 0, sizeof(struct can_frame));
     int ret = k_msgq_get(state->can_msgq, &state->can_message, K_NO_WAIT);
     if (ret == -EAGAIN || ret == -ENOMSG) {
         return;
@@ -17,7 +22,7 @@ inline static void record_data(main_state *state) {
         return;
     }
 
-    LOG_INF("Message size: %d", state->can_message.dlc);
+    // LOG_INF("Message size: %d", state->can_message.dlc);
 
     if (state->can_message.dlc != 2) {
         LOG_ERR("Error: Data length is not 2, continuing [Length: %d]",
@@ -25,8 +30,8 @@ inline static void record_data(main_state *state) {
         return;
     }
 
-    LOG_INF("Received distance: %u, Sensor ID: 0x%02x",
-            *(uint16_t *)(&state->can_message.data), state->can_message.id);
+    // LOG_INF("Received distance: %u, Sensor ID: 0x%02x",
+    //         *(uint16_t *)(&state->can_message.data), state->can_message.id);
 
     switch (state->can_message.id) {
     case 0x01:
@@ -50,10 +55,19 @@ inline static void record_data(main_state *state) {
     state->dataPoints.measurement[state->dataPoints.measurement_count++] =
         state->measurement;
 
-    if (state->dataPoints.measurement_count > 10) {
+    if (state->dataPoints.measurement_count > 30) {
         // TODO: Get timestamp and location data
+        struct rtc_time current_time;
+        rtc_get_time(rtc, &current_time);
+        struct tm *time = rtc_time_to_tm(&current_time);
+        int64_t unix_timestamp = timeutil_timegm(time);
+        if (unix_timestamp != -1) {
+            state->dataPoints.timestamp.seconds = unix_timestamp;
+            state->dataPoints.timestamp.nanos = current_time.tm_nsec;
+            state->dataPoints.has_timestamp = true;
+        }
         // TODO: Write data
-        state->dataPoints.measurement_count = 10;
+        state->dataPoints.measurement_count = 30;
         LOG_WRN("Saving/Sending new data");
         int ret = fs_seek(&state->file, 0, FS_SEEK_END);
         if (ret != 0) {
@@ -115,6 +129,7 @@ void main_state_init(main_state *state, struct k_msgq *can_msgq,
     state->can_msgq = can_msgq;
     state->upload_msgq = upload_msgq;
     state->state = MAIN_STATE_DISK_UNMOUNTED;
+    memset(&state->measurement, 0, sizeof(controllerMessage_Measurement));
     memset(&state->dataPoints, 0, sizeof(controllerMessage_DataPoints));
     upload_state_init(&state->upload, upload_msgq);
 }

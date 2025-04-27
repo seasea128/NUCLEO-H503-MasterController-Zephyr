@@ -15,6 +15,7 @@
 #include <zephyr/fs/fs.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/logging/log_ctrl.h>
 #include <zephyr/sd/sd_spec.h>
 #include <zephyr/storage/disk_access.h>
 #include <zephyr/sys/util.h>
@@ -23,14 +24,8 @@ LOG_MODULE_REGISTER(main, CONFIG_LOG_DEFAULT_LEVEL);
 
 struct k_fifo save_data_fifo;
 
-// TODO: Check if stack size need to be increased
-// K_THREAD_STACK_DEFINE(save_data_stack, // 2048);
-//                       controllerMessage_Packet_size + 4096);
-struct k_thread save_data_thread_data;
-static k_tid_t upload_data_thread_id;
-
 // CAN setup
-CAN_MSGQ_DEFINE(distance_msgq, 100);
+CAN_MSGQ_DEFINE(distance_msgq, 400);
 const struct device *const can_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_canbus));
 
 const struct device *const rtc = DEVICE_DT_GET(DT_ALIAS(rtc));
@@ -85,6 +80,8 @@ void set_rtc_from_modem() {
         ret = rtc_set_time(rtc, &new_time);
         LOG_INF("Set time success: %s, %d", resp, ret);
     } else {
+        LOG_ERR("Cannot get current time from modem: %s, %d", resp, ret);
+        return;
     }
 }
 
@@ -130,6 +127,7 @@ int main(void) {
 
     set_rtc_from_modem();
 
+#ifdef RTC_TEST
     k_sleep(K_MSEC(4834));
 
     struct rtc_time tm;
@@ -141,6 +139,7 @@ int main(void) {
                 tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour,
                 tm.tm_min, tm.tm_sec, tm.tm_nsec);
     }
+#endif
 
     LOG_INF("Button port: %s pin: %d", button_gpio.port->name, button_gpio.pin);
 

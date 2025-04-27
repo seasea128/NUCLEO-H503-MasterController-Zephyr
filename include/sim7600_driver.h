@@ -1,5 +1,6 @@
 #ifndef SIM7600_DRIVER_H_
 #define SIM7600_DRIVER_H_
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -9,7 +10,10 @@ typedef enum SIM7600_RESULT_E {
     SIM7600_OK,
     SIM7600_INIT_ERROR,
     SIM7600_RX_TIMEOUT,
-    SIM7600_RESP_NULL
+    SIM7600_RESP_NULL,
+    SIM7600_NO_NEW_DATA,
+    SIM7600_OK_DETECTED,
+    SIM7600_RESP_TYPE_UNDEFINED
 } SIM7600_RESULT;
 
 typedef struct sim7600_msgq_item_s {
@@ -19,7 +23,8 @@ typedef struct sim7600_msgq_item_s {
 typedef enum sim7600_resp_type_e {
     sim7600_resp_undefined = 0,
     sim7600_resp_normal = 1,
-    sim7600_resp_after_status = 2
+    sim7600_resp_after_status = 2,
+    sim7600_resp_no_parse = 3
 } sim7600_resp_type;
 
 SIM7600_RESULT sim7600_send_at(char *cmd, size_t size_cmd, char *output,
@@ -37,5 +42,8 @@ SIM7600_RESULT sim7600_close();
 
 SIM7600_RESULT
 sim7600_init(char *mqtt_address, size_t addr_size);
+
+SIM7600_RESULT sim7600_check_resp(char *output, size_t output_size,
+                                  bool print_resp);
 
 #endif // SIM7600_DRIVER_H_
