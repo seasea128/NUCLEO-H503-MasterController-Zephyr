@@ -1,6 +1,5 @@
 #include "sim7600_driver.h"
 #include "sim7600_at_cmd.h"
-#include "zephyr/kernel/thread_stack.h"
 #include "zephyr/logging/log.h"
 #include "zephyr/toolchain.h"
 #include <stdio.h>
